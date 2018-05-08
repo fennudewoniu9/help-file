@@ -1,0 +1,292 @@
+
+在每台机器上建一个Hadoop专用用户hadoop，并且把hadoop加入sudo组(可以利用现有的用户，但请对命令作相应的修改)
+
+groupadd hadoop
+useradd hadoop -g hadoop
+passwd hadoop
+
+
+
+在每台机器上的文件/etc/hosts中输入以下内容
+172.16.112.193 NameNode1
+172.16.112.194 NameNode2
+172.16.112.195 DataNode1
+172.16.112.196 DataNode2
+172.16.112.197 DataNode3
+
+用hadoop用户在每台机器上生成SSH Key，设置空密码
+ssh-keygen -t rsa -P ""
+
+分别在五台机器上执行
+ssh-copy-id -i ~/.ssh/id_rsa.pub hadoop@NameNode1
+ssh-copy-id -i ~/.ssh/id_rsa.pub hadoop@NameNode1
+ssh-copy-id -i ~/.ssh/id_rsa.pub hadoop@NameNode1
+ssh-copy-id -i ~/.ssh/id_rsa.pub hadoop@NameNode1
+ssh-copy-id -i ~/.ssh/id_rsa.pub hadoop@NameNode1
+
+把公钥库复制到其他机器上
+scp ~/.ssh/authorized_keys hadoop@NameNode2:/home/hadoop/.ssh/authorized_keys
+scp ~/.ssh/authorized_keys hadoop@DataNode1:/home/hadoop/.ssh/authorized_keys
+scp ~/.ssh/authorized_keys hadoop@DataNode2:/home/hadoop/.ssh/authorized_keys
+scp ~/.ssh/authorized_keys hadoop@DataNode3:/home/hadoop/.ssh/authorized_keys
+
+把known_hosts复制到其他机器上
+scp ~/.ssh/known_hosts hadoop@NameNode2:/home/hadoop/.ssh/known_hosts
+scp ~/.ssh/known_hosts hadoop@DataNode1:/home/hadoop/.ssh/known_hosts
+scp ~/.ssh/known_hosts hadoop@DataNode2:/home/hadoop/.ssh/known_hosts
+scp ~/.ssh/known_hosts hadoop@DataNode3:/home/hadoop/.ssh/known_hosts
+确保在这五台机器之间相互登录并不需要输入密码或确认任务信息
+
+复制hadoop安装包到NameNode1上 /opt 并解压
+sudo tar -xvf hadoop-2.6.0.tar.gz
+
+修改文件所有权给hadoop用户
+sudo chown -R hadoop:hadoop /opt
+
+修改vi /opt/hadoop-2.6.0/etc/hadoop/hadoop-env.sh
+export JAVA_HOME=${JAVA_HOME} #把${JAVA_HOME}替换成具体的值
+例如：
+
+
+-Xms2048m -Xmx8192m -XX:PermSize=256m -XX:MaxPermSize=512m -Dcom.sun.management.jmxremote.port=7001 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Djava.rmi.server.hostname=172.16.101.33
+
+---export JAVA_HOME=/home/hadoop/jdk1.6.0_13/
+
+
+编辑文件~/.bash_profile，并在文件中添加以下内容
+export HADOOP_PREFIX=/opt/hadoop-2.6.0
+export HADOOP_HOME=$HADOOP_PREFIX
+export HADOOP_COMMON_HOME=$HADOOP_PREFIX
+export HADOOP_HDFS_HOME=$HADOOP_PREFIX
+export HADOOP_MAPRED_HOME=$HADOOP_PREFIX
+export HADOOP_YARN_HOME=$HADOOP_PREFIX
+export HADOOP_CONF_DIR=$HADOOP_PREFIX/etc/hadoop
+export JAVA_HOME=/home/hadoop/jdk1.6.0_13/
+export PATH=$PATH:$HADOOP_PREFIX/bin:$HADOOP_PREFIX/sbin:$MAVEN_HOME/bin:$ANT_HOME/bin:$FINDBUGS_HOME/bin:$JAVA_HOME/bin
+
+使得环境变量生效
+source ~/.bash_profile
+
+vi /opt/hadoop-2.6.0/etc/hadoop/core-site.xml
+编辑后的内容如下
+<configuration>
+    <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://localhost:9000</value>
+    </property>
+</configuration>
+
+
+vi /opt/hadoop-2.6.0/etc/hadoop/hdfs-site.xml
+编辑后的内容如下
+<configuration>
+    <property>
+        <name>dfs.replication</name>
+        <value>1</value>
+    </property>
+</configuration>
+
+格式化名称节点
+hdfs namenode -format
+
+启动名称节点
+start-dfs.sh
+
+创建目录
+hdfs dfs -mkdir /user
+
+复制些文件到HDFS上
+hdfs dfs -put $HOADOOP_HOME/etc/hadoop/* /user
+
+通过以下URL访问HDFS
+http://172.16.112.193:50070/
+
+运行自带的example程序
+hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-2.6.0.jar grep /user output 'dfs[a-z.]+'
+
+单机配置完成，接下来配置集群
+
+mkdir -p /opt/hadoop-2.6.0/dfs/checkpoint
+mkdir -p /opt/hadoop-2.6.0/dfs/name
+mkdir -p /opt/hadoop-2.6.0/dfs/data
+
+vi /opt/hadoop-2.6.0/etc/hadoop/core-site.xml
+编辑后的内容如下
+<configuration>
+  <property> 
+    <name>fs.defaultFS</name> 
+    <value>hdfs://lfexcluster</value> 
+  </property> 
+  <property>
+     <name>hadoop.tmp.dir</name>
+     <value>/opt/hadoop-2.6.0/tmp</value>
+  </property>
+</configuration>
+
+vi /opt/hadoop-2.6.0/etc/hadoop/hdfs-site.xml
+编辑后的内容如下
+<configuration>
+        <property>
+          <name>dfs.namenode.logging.level</name>
+          <value>all</value>
+          <description>
+                The logging level for dfs namenode. Other values are "dir" (trace
+                namespace mutations), "block" (trace block under/over replications
+                and block creations/deletions), or "all".
+          </description>
+        </property>
+        <property>
+          <name>dfs.nameservices</name>
+          <value>lfexcluster</value>
+        </property>
+        <property>
+          <name>dfs.ha.namenodes.lfexcluster</name>
+          <value>NameNode1,NameNode2</value>
+        </property>
+        <property>
+          <name>dfs.namenode.rpc-address.lfexcluster.NameNode1</name>
+          <value>NameNode1:8020</value>
+        </property>
+        <property>
+          <name>dfs.namenode.rpc-address.lfexcluster.NameNode2</name>
+          <value>NameNode2:8020</value>
+        </property>
+        <property>
+          <name>dfs.namenode.http-address.lfexcluster.NameNode1</name>
+          <value>NameNode1:50070</value>
+        </property>
+        <property>
+          <name>dfs.namenode.http-address.lfexcluster.NameNode2</name>
+          <value>NameNode2:50070</value>
+        </property>
+
+        <property>
+          <name>dfs.namenode.shared.edits.dir</name>
+          <value>qjournal://NameNode1:8485;NameNode2:8485;DataNode1:8485/lfexcluster</value>
+        </property>
+        <property>
+          <name>dfs.client.failover.proxy.provider.lfexcluster</name>
+          <value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value>
+        </property>
+
+        <property>
+          <name>dfs.ha.fencing.methods</name>
+          <value>sshfence</value>
+        </property>
+
+        <property>
+          <name>dfs.ha.fencing.ssh.private-key-files</name>
+          <value>/home/hadoop/.ssh/id_rsa</value>
+        </property>
+
+        <property>
+          <name>dfs.journalnode.edits.dir</name>
+          <value>/opt/hadoop-2.6.0/dfs/journal/data</value>
+        </property>
+
+        <property>
+          <name>dfs.namenode.name.dir</name>
+          <value>/opt/hadoop-2.6.0/dfs/name</value>
+          <description>Determines where on the local filesystem the DFS name node
+                  should store the name table(fsimage).  If this is a comma-delimited list
+                  of directories then the name table is replicated in all of the
+                  directories, for redundancy. </description>
+        </property>
+        <property>
+          <name>dfs.datanode.data.dir</name>
+          <value>/opt/hadoop-2.6.0/dfs/data</value>
+          <description>Determines where on the local filesystem an DFS data node
+          should store its blocks.  If this is a comma-delimited
+          list of directories, then data will be stored in all named
+          directories, typically on different devices.
+          Directories that do not exist are ignored.
+          </description>
+        </property>
+        <property>
+          <name>dfs.namenode.checkpoint.dir</name>
+          <value>/opt/hadoop-2.6.0/dfs/checkpoint</value>
+          <description>Determines where on the local filesystem the DFS secondary
+                  name node should store the temporary images to merge.
+                  If this is a comma-delimited list of directories then the image is
+                  replicated in all of the directories for redundancy.
+          </description>
+        </property>
+
+        <property>
+           <name>dfs.ha.automatic-failover.enabled</name>
+           <value>true</value>
+        </property>
+        <property>
+           <name>ha.zookeeper.quorum</name>
+           <value>DataNode1:2181,DataNode2:2181,DataNode3:2181</value>
+        </property>
+</configuration>
+
+
+vi /opt/hadoop-2.6.0/etc/hadoop/mapred-site.xml
+编辑后的内容如下
+<configuration>
+  <property> 
+    <name>mapreduce.framework.name</name> 
+    <value>yarn</value> 
+  </property> 
+</configuration>
+
+vi /opt/hadoop-2.6.0/etc/hadoop/yarn-site.xml
+编辑后的内容如下
+<configuration>
+<!-- Site specific YARN configuration properties --> 
+  <property> 
+    <name>yarn.nodemanager.aux-services</name> 
+    <value>mapreduce_shuffle</value> 
+  </property> 
+  <property> 
+    <description>The address of the applications manager interface in the RM.</description> 
+    <name>yarn.resourcemanager.address</name> 
+  <value>NameNode1:18040</value> 
+  </property> 
+
+  <property> 
+    <description>The address of the scheduler interface.</description> 
+    <name>yarn.resourcemanager.scheduler.address</name> 
+    <value>NameNode1:18030</value> 
+  </property> 
+
+  <property> 
+    <description>The address of the RM web application.</description> 
+    <name>yarn.resourcemanager.webapp.address</name> 
+    <value>NameNode1:8088</value> 
+  </property> 
+  
+  <property> 
+    <description>The address of the resource tracker interface.</description> 
+    <name>yarn.resourcemanager.resource-tracker.address</name> 
+    <value>NameNode1:8031</value> 
+  </property> 
+  <property> 
+    <description>The address of the resource tracker interface.</description> 
+    <name>yarn.resourcemanager.hostname</name> 
+    <value>NameNode1</value> 
+  </property> 
+  
+</configuration>
+
+
+
+
+
+start-dfs.sh
+hdfs namenode -format
+
+在NameNode1上执行
+ scp -r ./dfs   hadoop@NameNode2:/opt/hadoop-2.6.0/
+ scp -r ./dfs   hadoop@DataNode1:/opt/hadoop-2.6.0/
+
+hdfs zkfc -formatZK
+
+
+hadoop jar /opt/hadoop-2.6.0/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.6.0.jar grep /jquery-uploaded output 'dfs[a-z.]+'
+hadoop archive -archiveName 20150908.har -p /jquery-uploaded/file-system-client-example -r 3 20150908 /jquery-uploaded/file-system-client-example
+
+
+

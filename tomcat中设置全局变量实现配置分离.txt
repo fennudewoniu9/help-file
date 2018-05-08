@@ -1,0 +1,29 @@
+■ 方案1：http://www.programgo.com/article/19312967490/
+    由于项目中使用的数据库配置文件较多，每次上线时需要将包中的*jdbc.properties文件删除比较麻烦，所以需要将这些配置文件放在服务器一个指定的目录中，这样项目中就不包含这些配置文件方便部署。 
+    先在指定的目录中放入需要加载的配置文件,然后在tomcat的bin目录中找到catalina.bat文件,linux系统中为.sh文件，增加"set JAVA_OPTS=-server -Xms256m -Xmx512m -XX:PermSize=128M -XX:MaxNewSize=256m -XX:MaxPermSize=256m 
+-Dglobal.config.path=G:\yididuocang\" 
+前面是设置的虚拟机内存参数，起作用的是"-Dglobal.config.path=G:\yididuocang\"是这个变量，由于我们项目中用的是spring加载的配置文件，所以只用修改相关的xml文件即可加载指定目录下的配置文件 
+<property name="locations"> 
+<list> 
+<value>file:${global.config.path}jdbc_xxx.properties</value 
+<value>file:${global.config.path}jdbc_xxxx.properties</value 
+<value>file:${global.config.path}jdbc_xxxxxxx.properties</value> 
+</list> 
+</property> 
+如果是开发环境，该变量设置在servers试图中，打开"open launch configuration"链接，选择"Arguments"page页，设置参数即可。
+
+
+■ 方案2：http://stackoverflow.com/questions/1300780/adding-a-directory-to-tomcat-classpath
+
+▼Ask:
+I have a folder in my C: drive as C:\app_config\java_app This folder contains some locale specific property files.
+
+I have a java class (PrjPropertilesLocator) that loads the property files based on default locale on the startup of the web App.My web application is running inside tomcat. The problem is how should i set this directory C:\app_config\java_app in the tomcat classpath so that this becomes available to the ResourceBundle inside the PrjPropertilesLocator class. Is there a way i can set this folder specifically for a Single web app that needs it.I do not want to put the property files inside WEB-INF/classes folder.
+
+On weblogic this runs fine.I set the directory inside the weblogic classpath in one of its startup scripts and it works fine. But on Tomcat i tried putting it in startup.bat also in setclasspath.bat, but was not able to do so successfully.
+
+Thanks for your help.
+
+
+▲Answer:
+Just specify it in shared.loader or common.loader property of /conf/catalina.properties.

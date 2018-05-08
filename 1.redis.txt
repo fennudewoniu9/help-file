@@ -1,0 +1,39 @@
+意大利、C语言开发
+读: 11w/s
+写: 8.12w/s
+
+场景: 缓存、任务队列、应用排行榜、网站访问统计、数据过期处理、分布式集群架构中的session分离
+#http://www.cnblogs.com/qunshu/p/3196972.html
+￼
+事务: 串行化事务
+持久化: 内存中的数据转移到硬盘上，两种持久化的区别（RDB、AOF）
+数据类型（指的是value的值）: 字符串、哈希（类似map）、集合、有序集合、列表
+
+
+Q&A: 除了超时还有什么一致性维护策略？
+A: 设置超时；更安全的是先更新DB再更新redis，遇到redis失效、且读发生在update db之前、且读的时间长于写的时间这样的几率很小，
+   如果想避免这种小概率事件，可以使用分布式事务解决。
+
+
+
+Redis 命令: 
+  #在线命令测试: http://try.redis.io/
+  启动: 
+    后台启动：./src/redis-server ./redis.conf  #redis.conf中的daemonize yes
+    前台启动：./src/redis-server
+  
+  进入客户端:
+    ./src/redis-cli
+  
+  查看reids信息:
+    info
+  
+  查看reids的client信息:
+    client list
+  
+
+
+
+
+
+

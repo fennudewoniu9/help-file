@@ -1,0 +1,123 @@
+全球领先的软件容器平台，build、ship、run，镜像、仓库、容器
+
+层级结构: 
+    5层: （Writable）container层
+    4层: （ReadOnly）应用
+    3层: （ReadOnly）JDK、Tomcat等
+    2层: （ReadOnly）操作系统
+    1层: （ReadOnly）操作系统引导
+    运行时是自上而下的查找文件，只有上层没有的情况下才会查找下层的
+
+镜像: (1层-4层)
+    使用联合文件系统把系统引导、操作系统、基础组件、应用等组成的一个文件系统。
+    
+    联合文件系统（分层的文件系统）: 把不同的目录挂到同一个虚拟文件系统下 -- 实现文件的分层: 实现镜像的存储
+
+容器: (5层)
+    本质就是一个进程
+
+仓库: 
+    类似Maven的仓库
+
+    Docker仓库(镜像中心): 
+     ♦ hub.docker.com（中央仓库）
+     ♦ c.163.com     （国内）
+
+
+Docker命令: 
+    1: docker pull [options] NAME[:tag]                      #拉取镜像「拉取镜像的时候，如果不指定，默认的是到hub.docker.com上下载」
+        eg: docker pull hub.c.163.com/library/nginx:latest
+    2: docker images [options] [repository[:tag]]            #查看本机有哪些镜像
+    3: docker run [options] image[:tag][:command][:arg...]   #运行镜像
+        eg: docker run -d hub.c.163.com/library/nginx #后台运行
+        eg: docker run -d -p 10001:80 hub.c.163.com/library/nginx #后台运行，主机端口8080，容器端口80
+            netstat -na|grep 10001
+        eg: docker run -d -P hub.c.163.com/library/nginx #-P:大P的方式会随机映射一个端口
+    4: docker stop 45a4426c1d21    #停止运行镜像
+    5: docker ps       #查看本机运行的docker进程
+    6: docker exec     #进入一个正在运行的容器
+        eg: docker exec -it 45a4426c1d21 bash   #bash：主程序
+    7: 查询主程序: docker inspect nginx  #通过显示的Cmd可以确认nginx的主程序
+    8: docker restart 45a4426c1d21
+    9: 查询停止的容器: docker ps -a -q
+    10: 删除镜像: docker rmi $(docker images -q ubuntu) #删除了ubuntu下的所有镜像
+
+Docker 网络:
+    网络类型: #默认使用Bridge模式
+        Bridge: 有自己独立的网卡、ip、端口等
+        Host: 没有自己独立的网卡、ip、端口等，和宿主机公用
+        None: 没有网络，不通讯
+
+    端口映射: 
+        容器的端口和宿主机上的端口做一个映射
+
+制作镜像: 
+    Dockerfile: 描述文件，怎么制作镜像
+        from hub.c.163.com/library/tomcat
+        MAINTAINER dalin xx@163.com
+        COPY jpress-web-newest.war /usr/local/tomcat/webapps
+
+    docker build: 按照描述文件制作镜像
+        docker build -t jpress:latest .    #.代表的是jpress-web-newest.war存放的目录; -t代表的是为这个镜像起一个名字
+    
+    运行自己的镜像: 
+        docker run -d -p 10002:8080 jpress   #8080:一般需要到镜像中心确定使用镜像的端口
+                                             #启动后链接Mysql，然后重启即可
+    数据库授权: Grant all privileges on *.* to 'root'@'10.15.200.238' identified by '123456' with grant option
+
+
+
+安装:
+    Linux: 
+    前置条件
+        64-bit 系统
+        kernel 3.10+
+    1.检查内核版本，返回的值大于3.10即可。
+        $ uname -r
+    2.使用 sudo 或 root 权限的用户登入终端。
+    3.确保yum是最新的
+        $ yum update
+    4.添加 yum 仓库
+        $ tee /etc/yum.repos.d/docker.repo <<-'EOF'
+        [dockerrepo]
+        name=Docker Repository
+        baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum.dockerproject.org/gpg
+        EOF
+    5.安装 Docker
+        $ yum install -y docker-engine
+    6.启动docker
+        $ systemctl start docker.service
+    7.验证安装是否成功(有client和service两部分表示docker安装启动都成功了)
+        M:~$docker version
+        Client:
+         Version:      1.13.1
+         API version:  1.26
+         Go version:   go1.7.5
+         Git commit:   092cba3
+         Built:        Wed Feb  8 08:47:51 2017
+         OS/Arch:      darwin/amd64
+
+        Server:
+         Version:      1.13.1
+         API version:  1.26 (minimum version 1.12)
+         Go version:   go1.7.5
+         Git commit:   092cba3
+         Built:        Wed Feb  8 08:47:51 2017
+         OS/Arch:      linux/amd64
+         Experimental: true
+
+
+
+
+
+
+
+
+
+
+
+
+

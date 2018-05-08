@@ -1,0 +1,66 @@
+1: Http1.0/Http1.1中的keep-alive
+    #http://2627lounuo.blog.51cto.com/10696599/1786257
+  - HTTP是超文本传输协议，是一个基于请求与响应模式的、无状态的、应用层的协议，常基于TCP的连接方式
+  
+  - keep-alive（又称持久连接、连接重用）即在一次TCP连接中可以持续发送多份数据而不会断开连接。通过使用keep-alive机制，
+    避免了建立或者重新建立连接的次数，也意味着可以减少TIME_WAIT状态连接，以此提高性能和提高httpd服务器的吞吐率(更少的TCP连接意味着更少的
+    系统内核调用,socket的accept()和close()调用)。
+  
+  - HTTP 1.0中keep-alive默认是关闭的，需要在HTTP头加入"Connection:Keep-Alive"，才能启用Keep-Alive；HTTP 1.1中默认启用
+    Keep-Alive，如果加入"Connection:close "，才关闭。目前大部分浏览器都是用HTTP 1.1协议，也就是说默认都会发起Keep-Alive的连
+    接请求了，所以是否能完成一个完整的Keep-Alive连接就看服务器设置情况。
+  
+  - httpd守护进程一般都提供了keep-alive timeout时间设置参数，比如nginx的keepalive_timeout和Apache的keepalivetimeout。
+    这个keepalive_timeout时间值意味着:一个http产生的TCP连接在传送完最后一个响应后，还需要保持keepalive_timeout时间后才开始关闭这个连接；
+  
+  - 在没有设置keepalive_timeout的情况下，一个socket资源从建立到真正释放所需要经过的时间是：建立TCP连接（三次握手）+ 
+      传送http请求+脚本指向+传送http响应+关闭TCP连接（四次挥手）+主动关闭的一方进入TIME_WAIT的2MSL等待时间；
+    当设定了keepalive_timeout时间之后，一个socket由建立到释放所需要经过的时间是：TCP建立连接（三次握手）+
+      （最后一次响应 - 第一次请求时间）+TCP关闭连接（四次挥手）+2MSL；也就是说，当使用keep-alive机制的时候，
+      当一次请求-响应结束之后，这个连接还会继续维持上keepalive_timeout时间，如果在这个时间内client端还有请求发过来，
+      那么server端会继续处理给予响应，如果keepalive_timeout时间计时结束后，就会进入TCP释放连接的阶段，因此也就会结束掉这次通信；
+
+    假如当前Apache每秒响应100个用户访问，KeepAliveTimeOut=5，此时httpd进程数就是100*5=500个(prefork模式)，一个httpd进程消耗5M内存的话，
+    就是500*5M=2500M=2.5G，夸张吧？当然，Apache与Client只进行了100次TCP连接。如果你的内存够大，系统负载不会太高，如果你的内存小于2.5G，
+    就会用到Swap，频繁的Swap切换会加重CPU的Load。现在我们关掉KeepAlive，Apache仍然每秒响应100个用户访问，因为我们将图片、js、css等分离出去了，
+    每次访问只有1个request，此时httpd的进程数是100*1=100个，使用内存100*5M=500M，此时Apache与Client也是进行了100次TCP连接。性能却提升了太多。
+
+  - 总结：
+    当你的Server内存充足时，KeepAlive=On还是Off对系统性能影响不大；
+    当你的Server上静态网页(Html、图片、Css、Js)居多时，建议打开KeepAlive；
+    当你的Server多为动态请求(因为连接数据库，对文件系统访问较多)，KeepAlive关掉，会节省一定的内存，节省的内存正好可以作为文件系统的Cache(vmstat
+    命令中cache一列)，降低I/O压力；
+    PS：当KeepAlive=On时，KeepAliveTimeOut的设置其实也是一个问题，设置的过短，会导致Apache频繁建立连接，给Cpu造成压力，
+        设置的过长，系统中就会堆积无用的Http连接，消耗掉大量内存，具体设置多少，可以进行不断的调节，因你的网站浏览和服务器配置而异。
+
+2: 压缩、结束通讯判断方法
+  - Persistent Connection持久连接: http://blog.csdn.net/hguisu/article/details/8608888
+    HTTP 1.1的持续连接，也需要增加新的请求头来帮助实现，例如，Connection请求头的值为Keep-Alive时，客户端通知服务器返回本次请求结果后保持连接；
+    Connection请求头的值为close时，客户端通知服务器返回本次请求结果后关闭连接，客户端根据服务器返回的Context-length来判断是否可以结束，如果服
+    务器压缩了，没有返回Context-length，那么根据返回的多个chunked中最后一个是否是空来判断。HTTP1.1还提供了与身份认证、状态管理和Cache缓存等
+    机制相关的请求头和响应头。关闭的时候客户端用长度或者chunked判断是否断开。
+
+  #https://www.zhihu.com/question/34074946
+3: Http1.x／Http2.0区别
+  - 在 HTTP/1.1 协议中 「浏览器客户端在同一时间，针对同一域名下的请求有一定数量限制。超过限制数目的请求会被阻塞」。不同浏览器、版本不一样（4——8个）
+    （这也是为何一些站点会有多个静态资源 CDN 域名的原因之一，拿 Twitter 为例，目的就是变相的解决浏览器针对同一域名的请求限制阻塞问题。）
+  - HTTP/2 的多路复用(Multiplexing) 则允许同时通过单一的 HTTP/2 连接发起多重的请求，由于 TCP 连接的减少而使网络拥塞状况得以改善，同时慢启动时
+    间的减少,使拥塞和丢包恢复速度更快
+  - 在不改动 HTTP/1.x 的语义、方法、状态码、URI 以及首部字段….. 的情况下, HTTP/2是如何做到「突破 HTTP1.1 的性能限制，改进传输性能，
+    实现低延迟和高吞吐量」的 ?
+    关键之一就是在 应用层(HTTP/2)和传输层(TCP or UDP)之间增加一个二进制分帧层。
+  - 服务端推送是一种在客户端请求之前发送数据的机制。在 HTTP/2 中，服务器可以对客户端的一个请求发送多个响应。Server Push 让 HTTP1.x 时代使用内嵌
+    资源的优化手段变得没有意义；如果一个请求是由你的主页发起的，服务器很可能会响应主页内容、logo 以及样式表，因为它知道客户端会用到这些东西。这相当
+    于在一个 HTML 文档内集合了所有的资源，不过与之相比，服务器推送还有一个很大的优势：可以缓存！也让在遵循同源的情况下，不同页面之间可以共享缓存资源
+    成为可能。
+
+
+
+
+
+
+
+
+
+
+

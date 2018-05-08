@@ -1,0 +1,85 @@
+1.
+	MVC
+	模块化
+	指令系统
+	双向数据绑定
+2.web编辑工具
+	emmet
+3.颜色主题
+	railscasts
+
+4.工具
+	代码编辑			sublime（tab键自动补齐）
+	断点调试			Chrome:Batarang  Firefox:Inspect Angular Scope
+	版本管理			Git
+	代码压缩和混合		基于Nodejs--grunt（nodejs安装，配置环境变量，使用npm【node package model】可以自动安装插件，类似Sublime的package）
+						（https://nodejs.org/download/     http://www.gruntjs.net/sample-gruntfile）
+						1.npm install grunt
+						2. ~/.npmrc（+registry = http://registry.cnpmjs.org）
+						3.npm install grunt-contrib-uglify        npm install grunt-contrib-concat        npm install grunt-contrib-watch
+	依赖管理			bower(前台类似Maven的版本管理工具)
+	Server				npm install -g http-server(将一个目录变成一个可以用浏览器访问的目录)【启动命令：http-server】
+	单元测试			karma(运行测试代码)/jasmine(编写测试代码)
+	集成测试			protractor，只能用于测试angularjs不能用于测试其它js
+
+5.Controller
+	a.不重复调用，一个ctl负责一小块试图
+	b.不操作DOM，速度慢
+	c.不在ctl做数据格式化，ng有表单控件
+	d.不在数据过滤，ng有$filter服务
+	e.不相互调用，控制器之间的交互通过事件进行
+
+6.$scope
+	是一个POJO
+	提供了一些工具方法$watch()/$apply()[一般不手动调用]
+	树型结构，和DOM标签平行
+	表达式的执行域
+	子$scope会继承父$scope上的属性和方法
+	每一个Anfular应用只有一个跟$scope对象（一般位于ng-app上）
+	可传播事件，类似DOM，可以向上也可以向下
+	MVC的基础，也是双向数据绑定的基础
+	可以使用angular.element($0).scope()进行调试
+
+	生命周期：创建->监控（watcher）->事件->藏域->销毁（可以手动）
+
+7.ng-bind
+	一般只在首页上使用，可避免在页面中出现{{}}，内页因为在首页已经把所有的js加载进来了，所以可以直接使用{{}}来获得对应的值。
+
+	格式化控件：html_beauty
+
+8.bootStrap
+	www.bootcss.com/3.0，不支持IE8.0
+	css.doyoe.com
+	标准：横向12列
+		  纵向不限
+	网格布局
+	交互式相应
+	=====================
+	取值表达式与ng-bind指令
+	双向绑定的典型场景--表单
+	动态切换标签样式
+	ng-show和ng-hide
+	nd-class
+	ngAnimate
+	=====================监察（http://sencha.com）
+
+9.directive
+	AEMC
+	a.属性 <div hello></div>（默认）
+	e.元素 <hello></hello>
+	c.样式 <div class="hello"></div>
+	m.注释 <!-- directive:hello -->
+	       <div></div>  //这样就可以解析到hello注释了；但是directive:hello前后一定要加空格
+
+	html页面中的自定义如果是驼峰法则，在conteoller中要全部小写。
+
+	独立scope：只需要在directive.function中的return加scope:{},
+	三种scope的绑定方式（@：字符串 =：双向 &：传递函数）
+
+	http://miniui.com
+	http://sencha.com
+	http://gallery.kissyui.com/coms
+	http://angular-ui.github.io
+	http://ngnice.com
+
+	Directive思想来源于flash（flash build）

@@ -1,0 +1,32 @@
+function qryAssetDownloadData(){
+    var params = {
+        "fromDate": $("#fromDate").val(),
+        "toDate": $("#toDate").val(),
+        "contractNo": $("#contractNo").val(),
+        "consistency": $("#consistency").val(),
+        "downType": "ASSET"
+    };
+    var requestUrl = url('/brcl-asset/result-download');
+
+    var _form = buildRequestForm(requestUrl, params);
+    $("body").append(_form);
+    _form.submit();
+}
+
+function buildRequestForm(requestUrl, jsonParam) {
+
+    var _form = $("<form>");
+    _form.attr("style", "display:none");
+    _form.attr("target", "");
+    _form.attr("method", "post");
+    _form.attr("action", requestUrl);
+
+    $.each(jsonParam, function(k, v){
+        var _input = $("<input>");
+        _input.attr("type","hidden");
+        _input.attr("name",k);
+        _input.attr("value", v);
+        _form.append(_input);
+    });
+    return _form;
+}

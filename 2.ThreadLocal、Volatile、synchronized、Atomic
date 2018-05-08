@@ -1,0 +1,47 @@
+ThreadLocal、Volatile、synchronized、Atomic关键字扫盲
+http://blog.csdn.net/u010687392/article/details/50549236
+
+# www.cnblogs.com/Mainz/p/3556430.html
+synchronized、volatile比较:
+0.都可以实现可见性的控制
+1.synchronized修饰的语句块解锁前所有的变量都要刷新到主内存中
+2.synchronized修饰的语句块加锁前所有工作内存中的变量都要从主内存中重新读取
+3.volatile会结合内存屏障、禁止指令重排序实现可见性
+4.volatile写变量之后插入一条更新主内存的指令，读变量的时候会插入一条从主内存中更新的指令；所有volatile相当于半个synchronized操作！
+5.volatile同时满足以下两种情况才可使用：
+  a.对变量的写入操作不依赖当前值：记录温度变化、boolean变量
+  b.该变量没有包含在具有其他变量的不变式中
+  所有volatile没有synchronized使用的广泛；
+6.volatile只能保证可见性，synchronized还可以保证原子性。
+
+指令重排序: 保证执行结果一致的前提性，更利于利用CPU性能
+编译器: 编译器优化重排序
+处理器: 指令集并行冲排序
+处理器: 内存系统重排序 
+--------------------------------------
+■ volatile: 强制更新一次不同CPU的缓存,这样任何试图读取该数据的线程将得到最新值，而不用考虑到底是被哪个cpu核心或者哪颗CPU执行的。具体到
+            JVM指令，从Load到store到内存屏障，一共4步，其中最后一步jvm让这个最新的变量的值在所有线程可见，也就是最后一步让所有的CPU内
+            核都获得了最新的值，但中间的几步（从Load到Store）是不安全的，中间如果其他的CPU修改了值将会丢失。所以比锁更方便，但不能保证
+            原子性！（计数器，1000次循环计数不是1000）（内存屏障）
+四步：
+read and load: 从主内存load到工作内存
+use and assign: 执行代码，改变工作内存值
+store and write: 从工作内存刷到主内存
+写内存屏障不原子性的原因：就是前三步不能保证内存中得值不被修改！
+
+
+■ synchronized: 保证一个方法同时被一个线程执行，但不能保证更新后的最新值被加载到线程内存！
+■ CAS: compare and swap，CPU自己有实现，java的long不是原子的，JDK5.0后使用native实现了对CPU CAS命令的调用！
+■ AtomicBoolean: 结合volatile和native实现了CAS！
+--------------------------------------
+
+
+ThreadLocal: http://blog.csdn.net/lufeng20/article/details/24314381
+	被修饰的变量在每个线程都有一份副本，相互不影响；比如DAO曾的数据库连接可以用ThreadLocal修饰。这种情况比用synchronized更简单、方便）
+	ThreadLocal的底层是一个ThreadLocalMap的Map对象；
+	具体的作用参考7.java.txt中的2.jvm
+
+
+
+
+

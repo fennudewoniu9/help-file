@@ -1,0 +1,337 @@
+ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm30/index.html
+      - ASM 能够通过改造既有类，直接生成需要的代码。增强的代码是硬编码在新生成的类文件内部的，没有反射(java Proxy)带来性能上的付出。
+      - 同时，ASM 与 Proxy 编程不同，不需要为增强代码而新定义一个接口，生成的代码可以覆盖原来的类，或者是原始类的子类。
+      - 它是一个普通的 Java 类而不是 proxy 类，甚至可以在应用程序的类框架中拥有自己的位置，派生自己的子类。
+      - 相比于其他流行的 Java 字节码操纵工具，ASM 更小更快。ASM 具有类似于 BCEL 或者 SERP 的功能，而只有 33k 大小，
+      而后者分别有 350k 和 150k。同时，同样类转换的负载，如果 ASM 是 60% 的话，BCEL 需要 700%，而 SERP 需要 1100% 或者更多。
+
+      其实ASM就是通过Visitor模式、职责链模式定义新的职责链，修改方法参数、待执行的方法，然后生成新的class文件或者原class文件的子类。
+
+
+
+1.范型:
+	- 类型擦除：对应范型，编译运行时范型会变成其父类（编译后的class文件还是范型）；
+	  例如：
+		class Node<T> {private T data;}
+		Node node = new Node(String.class, null);
+		运行时变为：
+		Node node = new Node(Object.class, null);
+		node.getData();返回的是Object而不是String
+
+	- 编译错误: generic array creation
+	  List<Integer>[] arrayOfLists = new List<Integer>[2];
+	  java不支持范型数组，支持范型集合。因为范型的类型擦除特征。
+
+	  如果支持的话，一下两个都可以添加，运行时还是会报错。
+		arrayOfLists[0] = new ArrayList<String>();
+		arrayOfLists[1] = new ArrayList<Integer>();
+
+	- 通配符
+		static class CovariantReader<T> {
+		    T readCovariant(List<? extends T> list) {
+		        return list.get(0);
+		    }
+		}
+
+	- 边界符
+		public class Test<T extends Comparable<T>>{}
+		编译后是public class Test<Comparable>{} 而不是 public class Test<Object>{}
+		以下代码就不会出错：
+		public static <T> int countGreaterThan(T[] anArray, T elem) {
+		    int count = 0;
+		    for (T e : anArray)
+		        if (e > elem)  // compiler error
+		            ++count;
+		    return count;
+		}
+
+
+# http://blog.csdn.net/hsk256/article/details/49104955
+# http://blog.csdn.net/ochangwen/article/details/51407167
+2.jvm: 参考PPT
+  - 方法区:
+    1. 有时候也成为永久代，在该区内很少发生垃圾回收，但是并不代表不发生GC，在这里进行的GC主要是对方法区里
+    		的常量池和对类型的卸载
+    2. 方法区主要用来存储已被虚拟机加载的类的信息、常量、静态变量和即时编译器编译后的代码等数据。
+    3. 该区域是被线程共享的。
+    4. 方法区里有一个运行时常量池，用于存放静态编译产生的字面量和符号引用。该常量池具有动态性，也就是说常
+    		量并不一定是编译时确定，运行时生成的常量也会存在这个常量池中。
+  - 虚拟机栈:
+    1. 虚拟机栈也就是我们平常所称的栈内存,它为java方法服务，每个方法在执行的时候都会创建一个栈帧，用于存储
+    		局部变量表、操作数栈、动态链接和方法出口等信息。
+    2. 虚拟机栈是线程私有的，它的生命周期与线程相同。
+    3. 局部变量表里存储的是基本数据类型、returnAddress类型（指向一条字节码指令的地址）和对象引用，这个对
+    		象引用有可能是指向对象起始地址的一个指针，也有可能是代表对象的句柄或者与对象相关联的位置。局部变量
+    		所需的内存空间在编译器间确定
+    4. 操作数栈的作用主要用来存储运算结果以及运算的操作数，它不同于局部变量表通过索引来访问，而是压栈和出栈
+    		的方式
+    5. 每个栈帧都包含一个指向运行时常量池中该栈帧所属方法的引用，持有这个引用是为了支持方法调用过程中的动态
+    		连接.动态链接就是将常量池中的符号引用在运行期转化为直接引用。
+  - 本地方法栈:
+    本地方法栈和虚拟机栈类似，只不过本地方法栈为Native方法服务。
+  - 堆:
+    java堆是所有线程所共享的一块内存，在虚拟机启动时创建，几乎所有的对象实例都在这里创建，因此该区域经常发
+    生垃圾回收操作。
+    堆大小 = 新生代 + 老年代 (1:2)
+    新生代 = Eden + 两个 Survivor(from和to 区域)
+            Edem:from:to = 8:1:1
+    GC 分为两种: Minor GC、Full GC (或称为 Major GC)
+              Minor GC - 新生代 - 复制算法（简单粗暴） #http://www.importnew.com/15311.html
+              Full GC  - 老年代 - 标记-清除算法
+		G1/CMS区别：http://blog.csdn.net/linhu007/article/details/48897597
+
+  - 程序计数器:
+    内存空间小，字节码解释器工作时通过改变这个计数值可以选取下一条需要执行的字节码指令，分支、循环、跳转、
+    异常处理和线程恢复等功能都需要依赖这个计数器完成。该内存区域是唯一一个java虚拟机规范没有规定任何OOM
+    情况的区域。
+
+
+  配合spring并发讲解：
+    spring默认是单利的，加上@Scope("prototype")后变多例。
+    # private static int st = 0;      //静态的，类变量、静态变量（监视器是类对象／对象锁即指其所在的Class对象）
+    # private int index = 0;          //非静态，成员变量、实例变量（监视器是实例对象／对象锁即指其所在的实例化对象）
+    # @RequestMapping("/test")
+    # public String test() {
+    #     System.out.println(st++ + " | " + index++);
+    #     return "/lsh/ch5/test";
+    # }
+    # 单利结果：
+    # 0 | 0
+    # 1 | 1
+    # 2 | 2
+    # 多例结果：
+    # 0 | 0
+    # 1 | 0
+    # 2 | 0
+    原因：st是静态的，被存放在方法区，共享。index是成员变量，每个实例独享。
+
+    单利不会排队、低效，反而并发越高越高效：spring单例模式下用ThreadLocal来切换不同线程之间的参数、保证线程安全，实际上ThreadLoacal的key就是当前
+    线程的Thread实例。单例模式下，spring把每个线程可能存在线程安全问题的参数值放进了ThreadLocal。这样虽然是一个实例在操作，但是不同线程下的数据互
+    相之间都是隔离的，因为运行时创建和销毁的bean大大减少了，所以大多数场景下这种方式对内存资源的消耗较少，而且并发越高优势越明显。
+
+
+# http://www.importnew.com/17572.html
+3.[Concurrent]Future:
+  创建线程的2种方式，一种是直接继承Thread，另外一种就是实现Runnable接口。
+  这2种方式都有一个缺陷就是：在执行完任务之后无法获取执行结果。
+  如果需要获取执行结果，就必须通过共享变量或者使用线程通信的方式来达到效果，这样使用起来就比较麻烦。
+  而自从Java 1.5开始，就提供了Callable和Future，通过它们可以在任务执行完毕之后得到任务执行结果。
+
+  - Callable
+    那么怎么使用Callable呢？一般情况下是配合ExecutorService来使用的，在ExecutorService接口中声明了若
+    干个submit方法的重载版本：
+    #<T> Future<T> submit(Callable<T> task);
+    #<T> Future<T> submit(Runnable task, T result);
+    #Future<?> submit(Runnable task);
+    #//一般情况下我们使用第一个submit方法和第三个submit方法，第二个submit方法很少使用。
+    暂时只需要知道Callable一般是和ExecutorService（例：Executors.newCachedThreadPool()，参考下面的）配合来使用的，
+    具体的使用方法讲在后面讲述。
+
+  - Future
+    Future就是对于具体的Runnable或者Callable任务的执行结果进行取消、查询是否完成、获取结果。必要时可以
+    通过get方法获取执行结果，该方法会阻塞直到任务返回结果。
+    # public interface Future<V> {
+    #     boolean cancel(boolean mayInterruptIfRunning); //具体含义参考3.[concurrent]Future:的URL
+    #     boolean isCancelled();
+    #     boolean isDone();
+    #     // 获取执行结果，这个方法会产生阻塞，会一直等到任务执行完毕才返回；
+    #     V get() throws InterruptedException, ExecutionException;
+    #     // 获取执行结果，如果在指定时间内，还没获取到结果，就直接返回null。
+    #     V get(long timeout, TimeUnit unit)
+    #         throws InterruptedException, ExecutionException, TimeoutException;
+    # }  
+
+  - FutureTask
+    因为Future只是一个接口，所以是无法直接用来创建对象使用的，因此就有了FutureTask。
+    # public class FutureTask<V> implements RunnableFuture<V>
+
+    # public interface RunnableFuture<V> extends Runnable, Future<V> {
+    #     void run();
+    # }
+    Callable可以获取返回值，Callable需要和Future一起使用，FutureTask实现了RunnableFuture，RunnableFuture:
+    继承了Runnable, Future。所以它既可以作为Runnable被线程执行，又可以作为Future得到Callable的返回值。:
+    FutureTask提供了2个构造器：
+    # public FutureTask(Callable<V> callable) {
+    # }
+    # public FutureTask(Runnable runnable, V result) {
+    # }
+    事实上，FutureTask是Future接口的一个唯一实现类。
+
+  - 使用示例
+    * Callable+Future获取执行结果
+        ExecutorService executor = Executors.newCachedThreadPool();
+        Callable<Integer> task = new SelfTask();
+        Future<Integer> result = executor.submit(task);
+        executor.shutdown();
+    * Callable+FutureTask获取执行结果
+        ExecutorService executor = Executors.newCachedThreadPool();
+        //第一种方式
+        Callable<Integer> task = new SelfTask();
+        FutureTask<Integer> futureTask = new FutureTask<Integer>(task);
+        executor.submit(futureTask);
+        executor.shutdown();
+        //第二种方式，注意这种方式和第一种方式效果是类似的，只不过一个使用的是ExecutorService，一个使用的是Thread
+        /*Callable<Integer> task = new SelfTask();
+        FutureTask<Integer> futureTask = new FutureTask<Integer>(task);
+        Thread thread = new Thread(futureTask);
+        thread.start();*/
+    参考：http://www.importnew.com/17572.html
+    
+  - ExecuteService: 
+    * 各种线程池的区别
+      # http://zy116494718.iteye.com/blog/1704344
+      Executors.newCachedThreadPool();Executors.newFixedThreadPool();等.....的区别。
+      1.newCachedThreadPool: 可缓存线程池，如果线程池长度超过处理需要，可灵活回收空闲线程，若无可回收，则新建线程。
+                       # Threads that have not been used for sixty seconds are terminated and removed from the cache.
+      2.newFixedThreadPool: 定长线程池，可控制线程最大并发数，超出的线程会在队列中等待。
+      3.newScheduledThreadPool: 定长线程池，支持定时及周期性任务执行。
+      4.newSingleThreadExecutor: 单线程化的线程池，它只会用唯一的工作线程来执行任务，保证所有任务按照指定顺序(FIFO, LIFO, 优先级)执行。
+
+    * 服务的关闭
+      # http://blog.csdn.net/bairrfhoinn/article/details/16848785
+      当ExecutorService使用完毕后，应该关闭它，这样才能保证线程不会继续保持运行状态，否则会阻止Java虚拟机关闭。
+      为了关闭在 ExecutorService 中的线程，你需要调用 shutdown() 方法。ExecutorService 并不会马上关闭，而是不再
+      接收新的任务，壹但所有的线程结束执行当前任务，ExecutorServie 才会真的关闭。所有在调用 shutdown() 方法之前提交
+      到 ExecutorService 的任务都会执行。
+      如果你希望立即关闭 ExecutorService，你可以调用 shutdownNow() 方法。这個方法会尝试马上关闭所有正在执行的任务，
+      并且跳过所有已经提交但是还没有运行的任务。但是对于正在执行的任务，是否能够成功关闭它是无法保证的，有可能他们真的被关
+      闭掉了，也有可能它会壹直执行到任务结束。这是壹個最好的尝试。
+
+  - Semaphore(信号量): 
+    * 原理 & 公平模式
+      信号量是一个计数器，用来控制同时多少个进程对共享资源的访问。
+      默认为非公平的(可以插队)并非先来的先获取信号量。主要作为进程间及同一进程内不同线程间的同步手段。拿到信号量的线程可以进入代码，否则就等待。
+
+    * 与线程池 ExecuteService 的区别
+      # http://bbs.csdn.net/topics/390985879
+      Semaphore信号量用来控制最大并发执行的线程数量的锁，实际线程数可能大于Semaphore设定的最大并发数，只是被挂起了而已；FixedThreadPool
+      等线程池是用来控制最大线程数。 # 线程池控制的是线程数量，而信号量控制的是并发数量
+
+
+4.JUC:
+  - 概念: 
+    start: 作用是启动一个新线程，新线程会执行相应的run()方法。start()不能被重复调用。
+    run: 和普通的成员方法一样，可以被重复调用。单独调用run()的话，会在当前线程中执行run()，而并不会启动新线程！
+
+    wait: 线程进入阻塞状态，释放锁，notify来唤醒
+    yeild: 线程进入就绪状态，不释放锁，同优先级的线程未必会立马获得执行权限，该线程可能继续运行
+    sleep: 线程进入休眠状态，指定休眠多久，不释放锁
+    interrupted: 本线程中断自己是被允许的；其它线程调用本线程的interrupt()方法时，会通过checkAccess()检查权限。这有可能抛出SecurityException
+    异常。如果本线程是处于阻塞状态，调用线程的wait(), wait(long)或wait(long, int)会让它进入等待(阻塞)状态，调用了它的interrupt()方法，那
+    么它的“中断状态”会被清除并且会收到一个InterruptedException异常。
+    LockSupport: 是用来创建锁和其他同步类的基本线程阻塞原语。park和wait的区别。wait让线程阻塞前，必须通过synchronized获取同步锁。
+
+    * synchronized与lock: sync是控制不同线程之间访问权限不可重入，lock是控制包括自己在内的线程间访问权限可重入，且sync的粒度是包括this的
+    对象（其实是对象监视器），比lock的粒度大，lock是通过AQS中的state（int）和以Thread为key来配合控制访问权限的。
+
+  - AQS & Sync:
+    AQS(AbstractQueuedSynchronizer类)是一个用来构建锁和同步器的框架,它在内部定义了一个int state变量,用来表示同步状态.在LOCK包中的相关锁(
+    常用的有ReentrantLock、 ReadWriteLock)都是基于AQS来构建.然而这些锁都没有直接来继承AQS,而是定义了一个Sync类去继承AQS.那么为什么要这样
+    呢?because:锁面向的是使用用户,而同步器面向的则是线程控制,那么在锁的实现中聚合同步器而不是直接继承AQS就可以很好的隔离二者所关注的事情.
+    # 链接：https://zhuanlan.zhihu.com/p/27134110
+    AQS中Node成员变量: 
+        volatile Node prev;
+        volatile Node next;
+        # 由此可见AQS是一个双向链表
+
+  - ReentrantLock: 是一个“可重入”的互斥锁，又被称为“独占锁”。关键方法Sync中的tryAcquire(int acquires);可重入是因为每次tryAcquire的时候
+    会有如下判断：else if (current == getExclusiveOwnerThread()) 。互斥的核心是int state。
+      lock: 获取锁。
+        lock中的方法:
+        final void lock() {
+            if (compareAndSetState(0, 1))
+                setExclusiveOwnerThread(Thread.currentThread());
+            else
+                acquire(1);
+        }
+        AQS中的方法:
+        public final void acquire(int arg) {
+            if (!tryAcquire(arg) &&
+                acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+                selfInterrupt();
+        }
+        其中addWaiter方法是把当前尝试获取锁的thread加入到等待队列，
+        # private Node addWaiter(Node mode) {
+        #     Node node = new Node(Thread.currentThread(), mode);
+        #     // Try the fast path of enq; backup to full enq on failure
+        #     Node pred = tail;
+        #     if (pred != null) {
+        #         node.prev = pred;
+        #         if (compareAndSetTail(pred, node)) {
+        #             pred.next = node;
+        #             return node;
+        #         }
+        #     }
+        #     enq(node);
+        #     return node;
+        # }
+
+  - FairSync & NonfairSync: 尝试占用state的时候，是否先进行一次判断（hasQueuedPredecessors()：返回当前等待队列(CLH队列)是否有等待的线程）
+    FairSync:
+        protected int tryAcquireShared(int acquires) {
+              for (;;) {
+                  if (hasQueuedPredecessors() // # 区别 #
+                      return -1; 
+                  int available = getState();
+                  int remaining = available - acquires;
+                  if (remaining < 0 ||
+                      compareAndSetState(available, remaining))
+                      return remaining;
+              }
+          }
+    NonfairSync:
+        final int nonfairTryAcquireShared(int acquires) {
+            for (;;) {
+                int available = getState();
+                int remaining = available - acquires;
+                if (remaining < 0 ||
+                    compareAndSetState(available, remaining))
+                    return remaining;
+            }
+        }
+        
+
+  - ConcurrentHashMap: 线程安全的哈希表，它是通过“锁分段”来保证线程安全的。ConcurrentHashMap将哈希表分成许多片段(Segment)，每一个片段除
+    了保存哈希表之外，本质上也是一个“可重入的互斥锁”(ReentrantLock)。多线程对同一个片段的访问，是互斥的；但是，对于不同片段的访问，却是可以同
+    步进行的。底层是Node组成的单向链表。发生hash碰撞后存链表尾部，如果长度大于8就把链表换成红黑树。
+
+  - CopyOnWriteArrayList: 线程安全的可变数组，通常保持很小，只读操作远多于可变操作；因为通常需要复制整个基础数组，所以可变操作（add()、set()
+    和 remove() 等等）的开销很大。
+
+  - ArrayBlockingQueue: 是数组实现的线程安全的有界（int count）的阻塞队列。仅在take取时候阻塞；按FIFO（先进先出）原则对元素进行排序，都是
+    从尾部插入到队列，从头部开始返回。
+    成员变量:
+      final Object[] items;
+      int count;
+      final ReentrantLock lock;
+      private final Condition notEmpty;
+      private final Condition notFull;
+      transient Itrs itrs = null;//Itr是实现了Iterator接口的类
+
+  - 以上三个除ConcurrentHashMap之外，add之前都是进行：
+        # final ReentrantLock lock = this.lock;
+        # lock.lock();
+
+
+4.排序:
+  - 实现各种排序 & 知道每种排序的最坏、最好和平均的复杂度分别是什么场景
+  - 不要用冒泡排序: - 大多数情况下效率感人 - 时间复杂度 O(n^2), 除非 n <= 16
+  - 哪种排序算法可以用于链表？并不推荐对一个链表排序，但归并排序是可行的.  链表的归并排序
+
+  - 算法：
+    * 选择排序: 遍历所有元素每次选出最小的一个记住下标，放在第一个；再从第二、三、四选出最小的放在第二、三、四，如此往复遍历直至最后一个。
+    * 插入排序: 遍历每一个元素，然后把该元素和其之前的所有元素比较，如果比前面的小：插入，一直比较到第一个。
+    * 快速排序: 随机取一个基准数，遍历所有元素，比其小的放在左边，比其大的放在右边；如此重复遍历所有新的数组，直至全部都是有序的。
+    * 归并排序: 两个有序数组，每次比较两个的第一个元素，哪个小取哪一个放在心的数组里，如此循环直至两个数组都被取空；如果不是有序的两个，需要拆分
+               直至只有一个元素，那么任何该只有一个元素的数组是有序的。
+
+  - 各种算法的复杂度：
+                最好    平均    最差
+    * 选择排序：n的平方  n的平方  n的平方
+    * 插入排序：n       n的平方  n的平方
+    * 快速排序：nlogn   nlogn   n的平方
+    * 归并排序：nlogn   nlogn   nlogn
+
+
+
+
