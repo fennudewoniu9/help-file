@@ -16,6 +16,9 @@
   /etc/bashrc
   以上五组文件也代表着系统启动时用户正常登录的加载顺序，如果通过su切换用户，只会顺序加载/etc/bashrc、/etc/profile.d/*.sh这两类。
 
+  最大句柄数: less /proc/sys/fs/file-max # 如果只是查看，也可以：sysctl fs.file-max
+
+  查看系统硬件信息: 
    cat /proc/ cpuinfo - CPU (i.e. vendor, Mhz, flags like mmx)
    cat /proc/meminfo - 内存信息(i.e. mem used, free, swap size)
    cat /proc/interrupts - 中断
