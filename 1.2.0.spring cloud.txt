@@ -1,0 +1,812 @@
+Spring Boot  : 是零配置的快速开发框架
+Spring Cloud : 一站式微服务解决方案。最新2.0，jdk至少1.8，原因是底层框架springfremwork升级到了5.x
+
+Spring Cloud是一个基于Spring Boot实现的云应用开发工具，它为基于JVM的云应用开发中的配置管理、服务发现、断路器、智能路由、微代理、控制总线、
+全局锁、决策竞选、分布式会话和集群状态管理等操作提供了一种简单的开发方式。
+笔记中涉及到的服务者、消费者、配置中心都可以独立部署、提供web服务，注册中心只是方便服务者相互调用。
+
+springboot如何初始化自定义的servlet: http://blog.csdn.net/catoop/article/details/50501686
+
+参考资料: 
+http://dockone.io/article/2140 
+https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20Hystrix%20Dashboard.html
+服务治理：http://tech.lede.com/2017/03/15/rd/server/SpringCloud0/
+
+1: 注册中心、服务注册与发现(Eureka)
+2: 服务消费、负载均衡(Ribbon／Feign)
+3: 断路器（熔断）--服务隔离、降级(Hystrix:Feign已依赖)
+4: 分布式配置中心
+5: 分布式配置中心（HA）
+6: 服务网关(Zuul)
+7: 注册中心（HA）
+8: TimeOut
+9: 集群监控／聚合监控(HystrixDashboard，Turbine)
+10: 分布式链路监控（Zipkin，Spring-Cloud-Sleuth）
+11: 消息总线(Spring Cloud Bus)----TODO
+100: 参数设置
+101: 高可用微服务实践
+102: Eureka 2.0
+990: Eureka Server相互不同步数据
+
+
+1: 注册中心、服务注册与发现（Eureka—Spring Cloud Netflix中的）
+    Spring Cloud针对服务注册与发现，进行了一层抽象，并提供了三种实现：Eureka、Consul、Zookeeper。目前支持得最好的就是Eureka
+    ，其次是Consul，最后是Zookeeper。因为对于服务的注册和发现，除了Eureka，Spring Cloud也整合了Consul和Zookeeper作为备选，
+    但是因为这两个方案在CAP理论上都遵循CP而不是AP（下一篇会详细介绍这点），所以官方并没有推荐使用。
+    # Eureka这个词来源于古希腊语，意为“我找到了！我发现了！”，据传，阿基米德在洗澡时发现浮力原理，高兴得来不及穿上裤子，跑到街上
+    # 大喊：“Eureka(我找到了)！”。
+
+    # Netflix和Spring Cloud是什么关系呢？Netflix是一家成功实践微服务架构的互联网公司，几年前，Netflix就把它的几乎整个微服务
+    # 框架栈开源贡献给了社区。Spring背后的Pivotal在2015年推出的Spring Cloud开源产品，主要对Netflix开源组件的进一步封装，方便
+    # Spring开发人员构建微服务基础框架。
+
+    - Eureka Server：服务的注册中心，负责维护注册的服务列表。
+    - Service Provider：服务提供方，作为一个Eureka Client，向Eureka Server做服务注册、续约和下线等操作，注册的主要数据包括
+      服务名、机器ip、端口号、域名等等。 # 续约每60s进行一次
+    - Service Consumer：服务消费方，作为一个Eureka Client，向Eureka Server获取Service Provider的注册信息，并通过远程调
+      用与Service Provider进行通信。  # pull ProvideServerList每30s更新一次
+    # Service Provider和Service Consumer不是严格的概念，Service Consumer也可以随时向Eureka Server注册，来让自己变成一个
+    # Service Provider。
+
+    服务注册中心: pom依赖
+      # Eureka Server不同于ZooKeeper的主从架构，每一个都是其他所有的副本。具体参考：7: 注册中心（HA）
+      # Eureka Server会维护一个已注册服务的列表，这个列表为一个嵌套的hash map：
+      # 第一层，application name和对应的服务实例。
+      # 第二层，服务实例及其对应的注册信息，包括IP，端口号等。
+        <parent>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-parent</artifactId>
+          <version>1.3.5.RELEASE</version>
+          <relativePath/> <!-- lookup parent from repository -->
+        </parent>
+
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-eureka-server</artifactId>
+        </dependency>
+
+        <dependencyManagement>
+            <dependencies>
+                <dependency>
+                    <groupId>org.springframework.cloud</groupId>
+                    <artifactId>spring-cloud-dependencies</artifactId>
+                    <version>Brixton.RELEASE</version>
+                    <type>pom</type>
+                    <scope>import</scope>
+                </dependency>
+            </dependencies>
+        </dependencyManagement>
+
+    服务注册中心注解: @SpringBootApplication + @EnableEurekaServer
+        在默认设置下，该服务注册中心也会将自己作为客户端来尝试注册它自己，所以我们需要禁用它的客户端注册行为，
+        只需要在application.properties中问增加如下配置：
+            # server.port=1111
+            # eureka.client.register-with-eureka=false
+            # eureka.client.fetch-registry=false
+            # eurek#a.client.serviceUrl.defaultZone=http://localhost:${server.port}/eureka/
+
+    服务提供方: pom依赖 
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-eureka</artifactId> #区别于注册中心
+        </dependency>
+        注: 其他配置和注册中心一样
+
+    服务提供方注解: @EnableDiscoveryClient + @SpringBootApplication + @RestController
+
+    配置文件: application.properties中配置：
+            # spring.application.name=compute-service   #注册到注册中心的名字，如果想设置contextPath使用server.contextPath=/sysname
+            # server.port=2222
+            # eureka.client.serviceUrl.defaultZone=http://localhost:1111/eureka/
+
+    为什么选择Netflix的Eureka而不是Zookeeper: http://tech.lede.com/2017/03/15/rd/server/SpringCloud1/ # Netflix认为：AP胜过CP
+
+    健壮性:
+      # Eureka本身是Netflix开源的一款提供服务注册和发现的产品，并且提供了相应的Java封装。在它的实现中，节点之间是相互平等的，部分注册中心的
+      # 节点挂掉也不会对集群造成影响，即使集群只剩一个节点存活，也可以正常提供发现服务。哪怕是所有的服务注册节点都挂了，Eureka Clients上也会
+      # 缓存服务调用的信息。这就保证了我们微服务之间的互相调用是足够健壮的。
+
+    Service Consumer获取到Server Provider的信息有2分钟延迟: http://tech.lede.com/2017/03/15/rd/server/SpringCloud1/
+
+    查看Eureka页面: http://localhost:10083/
+    查看每个实例的详细信息: http://localhost:10083/eureka/apps
+
+
+2: 服务消费、负载均衡（Ribbon『url方式』／Feign『serviceId方式』）
+    Ribbon: Ribbon是一个基于HTTP和TCP客户端的负载均衡器。Feign中也使用Ribbon。
+    # 负载均衡不是一个独立的组件，它运行在网关、服务调用等地方，每当需要访问一个服务的时候，就会通过Ribbon来获得一个该服务的实例去掉用。
+    # Ribbon从Eureka注册中心获得服务和实例的列表，而不是发送每个请求的时候从注册中心获得。我们可以使用RestTemplate来进行服务间调用，
+    # 也可以配置FeignClient来使用，不管什么方式，只要使用服务注册，就会默认使用Ribbon负载均衡。（RestTemplate需要添加@LoadBalanced）
+    
+    # http://tech.lede.com/2017/03/15/rd/server/SpringCloud1/
+      - ServerList 
+      - ServerListFilter 
+      - IPing，探测服务实例是否存活的策略。 
+      - IRule，负载均衡策略包括：轮询、随机、根据响应时间加权等，可以自己定义实现 
+      - ILoadBalancer，负载均衡器。 
+      - RestClient，服务调用器，发起rest请求。
+      Ribbon工作时会做四件事情：
+        优先选择在同一个Zone且负载较少的Eureka Server；
+        定期从Eureka更新并过滤服务实例列表；
+        根据用户指定的策略，在从Server取到的服务注册列表中选择一个实例的地址；
+        通过RestClient进行服务调用。 
+        
+        pom依赖: 
+            #父工程、版本仲裁同注册中心一样
+            <dependency>
+              <groupId>org.springframework.cloud</groupId>
+              <artifactId>spring-cloud-starter-eureka</artifactId>
+            </dependency>
+
+            <dependency>
+              <groupId>org.springframework.cloud</groupId>
+              <artifactId>spring-cloud-starter-ribbon</artifactId>
+            </dependency>
+
+        注解: @SpringBootApplication + @EnableDiscoveryClient + @LoadBalanced
+
+        消费: RestTemplate restTemplate.getForEntity（）：指定服务
+
+    Feign: Feign是一个声明式的Web Service客户端，它使得编写Web Serivce客户端变得更加简单。能把HTTP远程调用对开发者完全透明，得到与调用本地方法一致的编码体验。
+           Spring Cloud为Feign增加了对Spring MVC注解的支持，还整合了Ribbon和Eureka来提供均衡负载的HTTP客户端实现。
+           @FeignClient用于通知Feign组件对该接口进行代理(不需要编写接口实现)，使用者可直接通过@Autowired注入。
+           Spring Cloud应用在启动时，Feign会扫描标有@FeignClient注解的接口，生成代理，并注册到Spring容器中。
+           Feign在默认情况下使用的是JDK原生的URLConnection发送HTTP请求，没有连接池，但是对每个地址会保持一个长连接，即利用HTTP的persistence connection。
+           Spring Cloud从Brixtion.SR5版本开始支持这种替换，首先在项目中声明Apache HTTP Client和feign-httpclient依赖：feign.httpclient.enabled=true
+           这一点与阿里Dubbo中暴露远程服务的方式类似，区别在于Dubbo是基于私有二进制协议，而Feign本质上还是个HTTP客户端。
+           # http://blog.spring-cloud.io/blog/sc-feign.html
+        pom依赖: 
+            #父工程、版本仲裁同注册中心一样
+            <dependency>
+              <groupId>org.springframework.cloud</groupId>
+              <artifactId>spring-cloud-starter-eureka</artifactId>
+            </dependency>
+
+            <dependency>
+              <groupId>org.springframework.cloud</groupId>
+              <artifactId>spring-cloud-starter-feign</artifactId>
+            </dependency>
+
+        注解: 主类：@SpringBootApplication + @EnableDiscoveryClient + @EnableFeignClients
+              服务接口：@FeignClient("compute-service") #compute-service：服务方注册到注册中心的名字
+
+        消费: 1.@EnableFeignClients+@FeignClient("compute-service”)：接口制定服务
+              2.由Spring Cloud根据这个interface创建可供程序直接调用的代理类。
+
+        注意: 1.如果在@RequetMapping中的method将请求方式指定为GET，那么所有未标注解的参数将会被忽略
+              2.@FeignClient 不能和 @Component 注解一起使用，否则会返回hystrix超时错误
+              2.@FeignClient 接口里的方法的数据类型要和服务端返回的保持一致，比如list、object都要一致
+
+
+3: 断路器（熔断）（Hystrix，『Feign已依赖』）
+    # 进阶: http://hot66hot.iteye.com/blog/2155036
+    在请求失败频率较低的情况下，Hystrix还是会直接把故障返回给客户端。只有当失败次数达到阈值（默认在20秒内失败5次）
+    时，断路器打开并且不进行后续通信，而是直接返回备选响应。
+
+    commandKey: 定义唯一的依赖（默认是方法名字）
+    groupKey: 定义分组，便于统计
+    threadPoolKey: 对相同业务的不同请求分组（redis、http）
+    Request-Cache: 让(CommandKey/CommandGroup)相同的情况下,直接共享结果，降低依赖调用次数
+    fallback降级逻辑命令嵌套: 依赖不可用，降级应用返回缓存数据。依赖、降级使用不同的线程池做隔离，防止上层线程池满，影响二级降级逻辑调用
+    HystrixCollapser: 命令调用合并允许多个请求合并到一个线程/信号下批量执行。
+
+    # http://hot66hot.iteye.com/blog/2155036
+    # 例如:一个依赖30个SOA服务的系统,每个服务99.99%可用。  
+    #     99.99%的30次方 ≈ 99.7%  
+    #     0.3% 意味着一亿次请求 会有 3,000,00次失败  
+    #     换算成时间大约每月有2个小时服务不稳定.  
+    #     随着服务依赖数量的变多，服务不稳定的概率会成指数性提高. 
+      a.在Spring Cloud中使用了Netflix的Hystrix来实现断路器的功能，通过控制那些访问远程系统、服务和第三方库的节点，从而对延迟和故障提供更强大的容错能力。
+        Hystrix具备拥有回退机制和断路器功能的线程和信号隔离，请求缓存和请求打包，以及监控和配置等功能。
+      b.熔断／断路是控制消费者，当消费者调用服务者出现超时、Exception时执行指定的方法。
+      Ribbon: 
+        pom依赖: 
+            #父工程、版本仲裁同注册中心一样
+            <dependency>
+              <groupId>org.springframework.cloud</groupId>
+              <artifactId>spring-cloud-starter-hystrix</artifactId>
+            </dependency>
+
+        注解: Ribbon工程中的 + @EnableCircuitBreaker + @HystrixCommand
+        #HystrixCommand 表明该方法为hystrix包裹，可以对依赖服务进行隔离、降级、快速失败、快速重试等等hystrix相关功能 
+
+        消费: 在制定服务的方法（RestTemplate restTemplate.getForEntity（）：指定服务）上加一下注解: 
+              @HystrixCommand(fallbackMethod = "addServiceFallback") # addServiceFallback是调用失败后制定执行的方法
+
+      Feign: Feign中默认已经依赖了Hystrix，不需要做任何改造
+          - 支持Hystrix和它的Fallback
+          - 支持Ribbon的负载均衡
+          - 支持HTTP请求和响应的压缩
+          - 可插拔的注解支持，包括Feign注解和JAX-RS注解
+          - 支持可插拔的HTTP编码器和解码器
+          pom依赖: 
+              #父工程、版本仲裁同注册中心一样
+              同fegin工程
+
+          注解: 同fegin工程
+
+          消费: 1.@FeignClient(value = "compute-service", fallback = ComputeClientHystrix.class) 
+                #回调类ComputeClientHystrix，实现@FeignClient的接口，实现的方法就是对应@FeignClient接口中映射的fallback函数。
+               2.创建回调类实现Fegin制定服务的接口
+
+
+4: 分布式配置中心
+    配置服务: 
+        pom依赖: 
+            #父工程、版本仲裁同注册中心一样
+            <dependency>
+              <groupId>org.springframework.cloud</groupId>
+              <artifactId>spring-cloud-config-server</artifactId>
+            </dependency>
+
+        注解: @SpringBootApplication + @EnableConfigServer
+
+        配置文件: application.properties中配置：
+                # spring.application.name=configServer
+                # server.port=5501
+
+                # 方式1: git管理配置
+                # spring.cloud.config.server.git.uri=git@github.com:Torres999/config-server.git
+                # spring.cloud.config.server.git.searchPaths=config-repo # 配置仓库路径下的相对搜索位置，可以配置多个
+                # spring.cloud.config.server.git.username=Torres999
+                # spring.cloud.config.server.git.password=密码
+
+                # 方式2: 本地仓库配置
+                #spring.profiles.active=native
+                #spring.cloud.config.server.native.searchLocations=file:/Users/dalin/IdeaProjects/config-server/config-repo
+        验证地址: git: http://localhost:5501/fileName的application部分/fileName的profile部分/git的分支
+                 本地: http://localhost:5501/fileName的application部分/fileName的profile部分
+
+        URL与配置文件的映射关系如下: 
+                /{application}/{profile}[/{label}]
+                /{application}-{profile}.yml
+                /{label}/{application}-{profile}.yml
+                /{application}-{profile}.properties
+                /{label}/{application}-{profile}.properties
+
+    配置客户端: 
+        pom依赖: 
+            #父工程、版本仲裁同注册中心一样
+
+            <dependency>
+              <groupId>org.springframework.cloud</groupId>
+              <artifactId>spring-cloud-starter-config</artifactId>
+            </dependency>
+
+        注解: @SpringBootApplication
+
+        配置文件: 而bootstrap.properties中配置：
+                # 这里需要格外注意：下面这些属性必须配置在bootstrap.properties中，config部分内容才能被正确加载。
+                # 因为config的相关配置会先于application.properties，而bootstrap.properties的加载也是先于 application.properties。
+                server.port=5550
+
+                # 要读取的配置文件application属性，git仓库／本地路径下的文件名字{application}部分一定要和这个相同，否则取不到文件
+                spring.cloud.config.name=configServer
+                # spring.application.name=configServer--这个属性和spring.cloud.config.name此时效果一样
+                spring.cloud.config.profile=dev
+                spring.cloud.config.label=brch
+                spring.cloud.config.uri=http://localhost:5501/
+                # spring.application.name：对应前配置文件中的{application}部分
+                # spring.cloud.config.profile：对应前配置文件中的{profile}部分
+                # spring.cloud.config.label：对应前配置文件的git分支
+                # spring.cloud.config.uri：配置中心的地址
+ 
+        验证地址: http://localhost:5550/from
+    总结: 
+        1、客户端／服务端都可以脱离euraka独立运行；
+        2、两个都起起来后服务端挂掉后客户端也保存了所需要的值(客户端启动时验证是否可以取到${from}变量的值，可以判断客户端此时拿了文件的值)；
+        3、服务端集群后默认的取git的master分支的内容。仓库内容修改后可以实时被更新到server端，可能是通过spring-boot-starter-actuator实现。
+                
+
+5: 分布式配置中心（HA）
+    配置服务: 
+        pom依赖: 
+            #父工程、版本仲裁同注册中心一样
+            <dependency>
+              <groupId>org.springframework.cloud</groupId>
+              <artifactId>spring-cloud-config-server</artifactId>
+            </dependency>
+            <dependency>
+              <groupId>org.springframework.cloud</groupId>
+              <artifactId>spring-cloud-starter-eureka</artifactId>
+            </dependency>
+
+        注解: @SpringBootApplication + @EnableConfigServer + @EnableDiscoveryClient
+
+        配置文件: application.properties中配置：
+                  # spring.application.name=configCluster-Server
+                  # server.port=5502
+                  # # git管理配置
+                  # spring.cloud.config.server.git.uri=git@github.com:Torres999/config-server.git
+                  # spring.cloud.config.server.git.searchPaths=config-repo
+                  # spring.cloud.config.server.git.username=Torres999
+                  # spring.cloud.config.server.git.password=密码
+
+                  # #spring.profiles.active=native
+                  # #spring.cloud.config.server.native.searchLocations=file:/Users/dalin/IdeaProjects/config-server/config-repo
+
+                  # eureka.client.serviceUrl.defaultZone=http://localhost:8801/eureka/
+
+                  #测试访问地址：http://localhost:5502/configServer/dev
+        验证地址: http://localhost:5502/configServer/dev
+
+    配置客户端: 
+        pom依赖: 
+            #父工程、版本仲裁同注册中心一样
+            <dependency>
+              <groupId>org.springframework.cloud</groupId>
+              <artifactId>spring-cloud-starter-config</artifactId>
+            </dependency>
+            <dependency>
+              <groupId>org.springframework.cloud</groupId>
+              <artifactId>spring-cloud-starter-eureka</artifactId>
+            </dependency>
+
+        注解: @SpringBootApplication
+
+        配置文件: 而bootstrap.properties中配置：
+                # server.port=5551
+
+                # #寻找configServerCluster-dev.properties文件,git仓库／本地路径下的文件名字{application}部分一定要和这个相同，否则取不到文件
+                # spring.application.name=configServerCluster
+                # #spring.cloud.config.name=configServerCluster和spring.application.name效果一样
+
+                # spring.cloud.config.discovery.enabled=true
+                # spring.cloud.config.discovery.serviceId=configCluster-Server
+                # spring.cloud.config.profile=test
+                # #spring.cloud.config.discovery.enabled:开启通过服务来访问Config Server的功能
+                # #spring.cloud.config.discovery.serviceId:指定Config Server注册的服务名
+                # #spring.application.name和spring.cloud.config.profile如之前通过URI的方式访问时候一样，用来定位Git中的资源。
+
+                # eureka.client.serviceUrl.defaultZone=http://localhost:8801/eureka/
+
+        验证地址: http://localhost:5551/from
+
+    刷新消费端配置内容: 
+            1.添加pom依赖spring-boot-starter-actuator
+            2.刷新服务：http://localhost:5551/refresh   //actuator默认的refresh方法（POST类型）
+              返回如下内容代表客户端获得了最新的配置内容：
+                [
+                  "from"
+                ]
+            3.重新请求获得最新地址
+
+
+6: 服务网关—路由／权限控制（Zuul—Spring Cloud Netflix中的）
+    ⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠: 
+    注意: 使用后所有对外提供的访问地址均是zuul的地址
+    ⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠⚠: 
+    pom依赖: 
+        #父工程、版本仲裁同注册中心一样
+        <dependency>
+          <groupId>org.springframework.cloud</groupId>
+          <artifactId>spring-cloud-starter-eureka</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-zuul</artifactId>
+        </dependency>
+
+    注解: @EnableZuulProxy + @SpringCloudApplication(=@SpringBootApplication + @EnableDiscoveryClient + @EnableCircuitBreaker)
+
+    配置文件: 
+        # spring.application.name=api-gateway
+        # server.port=9999
+
+        # eureka.client.serviceUrl.defaultZone=http://localhost:8801/eureka/
+
+        ########################Mappping：类似servlet的分发、映射#######################
+        # # routes to url 
+        # #zuul.routes.api-a-url.path=/api-a-url/**
+        # #zuul.routes.api-a-url.url=http://localhost:2222/
+
+        # # routes to serverId
+        # zuul.routes.api-a.path=/api-a/**
+        # zuul.routes.api-a.serviceId=COMPUTE-SERVICE
+        # zuul.routes.api-b.path=/api-b/**
+        # zuul.routes.api-b.serviceId=COMPUTE-SERVICE-2
+
+    实例化自定义过滤器: AppApplication中加入 
+      @Bean
+      public AccessFilter accessFilter() {
+        return new AccessFilter();
+      }
+      # 如果不实例化，网关也会生效，但是自定义filter不会生效
+
+    验证地址: http://localhost:9999/api-a/add?a=1&b=9
+             http://localhost:9999/api-b/add?a=1&b=9
+             http://localhost:9999/api-a/add?a=1&b=9&accessToken=token//启用zuul以后的地址
+
+
+    ZuulFilter: 过滤
+    * filterType：过滤器的类型，在zuul中定义了四种不同生命周期的过滤器类型，具体如下：
+        * pre：可以在请求被路由之前调用
+        * routing：在路由请求时候被调用
+        * post：在routing和error过滤器之后被调用
+        * error：处理请求时发生错误时被调用
+    * filterOrder：通过int值来定义过滤器的执行顺序
+    * shouldFilter：返回一个boolean类型来判断该过滤器是否要执行，所以通过此函数可实现过滤器的开关。在上例中，我们直接返回true，所以该过滤器总是生效。
+    * run：过滤器的具体逻辑。需要注意，这里我们通过ctx.setSendZuulResponse(false)令zuul过滤该请求，不对其进行路由，
+           然后通过ctx.setResponseStatusCode(401)设置了其返回的错误码，当然我们也可以进一步优化我们的返回，
+           比如，通过ctx.setResponseBody(body)对返回body内容进行编辑等。
+    
+7: 注册中心（HA）
+    # http://tech.lede.com/2017/03/15/rd/server/SpringCloud1/
+    - Eureka Server除了单点运行之外，还可以通过运行多个实例，并进行互相注册的方式来实现高可用的部署，所以我们只需要将Eureke Server配置
+      其他可用的serviceUrl就能实现高可用部署。但不同于ZooKeeper的选举leader的过程，Eureka Server采用的是Peer to Peer对等通信。这
+      是一种去中心化的架构，无master/slave区分，每一个Peer都是对等的。在这种架构中，节点通过彼此互相注册来提高可用性，每个节点需要添加一
+      个或多个有效的serviceUrl指向其他节点。每个节点都可被视为其他节点的副本。 # replicateToPeer（节点间复制）
+    - 一个新的节点启动后，会首先尝试从邻近节点获取所有实例注册表信息，完成初始化。
+    - 如果Eureka Server在一定时间内没有接收到某个服务实例的心跳，Eureka Server将会注销该实例（默认为90秒，通过
+      eureka.instance.lease-expiration-duration-in-seconds配置）。
+    - 当Eureka Server节点在短时间内丢失过多的心跳时（比如发生了网络分区故障），那么这个节点就会进入自我保护模式。
+
+    自我保护模式: 
+      默认配置下，如果Eureka Server每分钟收到心跳续约的数量低于一个阈值（instance的数量*(60/每个instance的心跳间隔秒数)*自我保护系
+      数），并且持续15分钟，就会触发自我保护。在自我保护模式中，Eureka Server会保护服务注册表中的信息，不再注销任何服务实例。当它收到的
+      心跳数重新恢复到阈值以上时，该Eureka Server节点就会自动退出自我保护模式。它的设计哲学前面提到过，那就是宁可保留错误的服务注册信息，
+      也不盲目注销任何可能健康的服务实例。该模式可以通过eureka.server.enable-self-preservation = false来禁用，同时eureka.instance.
+      lease-renewal-interval-in-seconds可以用来更改心跳间隔，eureka.server.renewal-percent-threshold可以用来修改自我保护系数（默认0.85）。
+      
+    Eureka Server的Region、Zone: 
+      Eureka的官方文档对Regin、Zone几乎没有提及，由于概念抽象，新手很难理解。Region包含：Zone1、Zone2（Zone1包含:Eureka1、Eureka2；
+      Zone2包含:Eureka3、Eureka4 ）。region和zone（或者Availability Zone）均是AWS的概念。在非AWS环境下，我们可以先简单地将region
+      理解为Eureka集群，zone理解成机房。上图就可以理解为一个Eureka集群被部署在了zone1机房和zone2机房中。
+
+    双节点: 
+        配置文件中的eureka.client.serviceUrl.defaultZone相互写对方的地址
+        #服务／消费者中的defaultZone写两个eureka的地址，否则，消费／服务者都写eureka1，关掉eureka1后虽然在eureka2上也可以看到服务，
+        #但是消费者调用会报错。???前后两次试验结果不一致，待确认
+        
+    三节点: 
+        配置文件中的eureka.client.serviceUrl.defaultZone相互写另外两个eureka的地址
+        服务／消费者中的defaultZone写其中一个的地址，区别于双节点，即使服务／消费者都只写一个eureka1，eureka1关掉后消费者依然可以调用服务。
+    
+
+    总结: 注册中心的eureka.client.serviceUrl.defaultZone要把集群中除自己以外的所有eureka写上。
+          #eureka集群时，服务端只会往defaultZone list中的第一个保持心跳，且这个eureka掉线后依然会进行心跳，而任意一个eureka掉线后服务已然可用。
+
+8: TimeOut(1.3.5.RELEASE + Brixton.RELEASE)
+    测试用例架构: web -> zuul -> computerConsume -> computerServer
+
+    结论: 
+      1: zuul: hystrix.command.default.execution.timeout.enabled=true
+         computerConsume: 有熔断
+         computerServer: sleep(6000)
+         #zuul报ZuulException: Forwarding error; computerConsume触发熔断; computerServer被ReRequest every 5 seconds，retry 10 times.
+
+      2: zuul: hystrix.command.default.execution.timeout.enabled=true
+         computerConsume: 没有熔断
+         computerServer: sleep(6000)
+         #zuul报ZuulException: Forwarding error; computerConsume报TimeoutException: null; computerServer被ReRequest every 5 seconds，retry 10 times.
+
+      3: zuul: hystrix.command.default.execution.timeout.enabled=false
+         computerConsume: 有熔断
+         computerServer: sleep(6000)
+         #zuul正常; computerConsume触发熔断; computerServer被ReRequest every 5 seconds，retry 10 times.
+
+      4: zuul: hystrix.command.default.execution.timeout.enabled=false
+         computerConsume: 没有熔断
+         computerServer: sleep(6000)
+         #zuul正常; computerConsume触发熔断; computerServer被ReRequest every 5 seconds，retry 10 times.
+
+      5: computerServer被ReRequest every 5 seconds，retry 10 times.是computerConsume后台发起的request，以下配置可以控制retry
+         5.1: If you are using fegin you can set properties:
+          5.1.1: 方式1
+            # AppApplication中加入一下配置，必须是Camden.SR5以后的版本
+            # @Bean
+            # public Retryer retryer() {
+            #   return Retryer.NEVER_RETRY;
+            # }
+
+          5.1.2: 方式2
+            #@Bean
+            #public Retryer retryer() {
+            #  return new Retryer() {
+            #    @Override
+            #    public void continueOrPropagate(RetryableException e) {
+            #      throw e;
+            #    }
+            #
+            #    @Override
+            #    public Retryer clone() {
+            #      return this;
+            #    }
+            #  };
+            #}
+
+         5.2: If you are using ribbon you can set properties:
+         # spring.cloud.loadbalancer.retry.enabled=true
+         # hystrix.command.default.execution.isolation.thread.timeoutInMilliseconds=1000
+         # timeout-compute-service.ribbon.ConnectTimeout=250
+         # timeout-compute-service.ribbon.ReadTimeout=1000
+         # timeout-compute-service.ribbon.OkToRetryOnAllOperations=true
+         # #切换实例的重试次数
+         # timeout-compute-service.ribbon.MaxAutoRetriesNextServer=0
+         # #对当前实例的重试次数#每次还是retry10次
+         # timeout-compute-service.ribbon.MaxAutoRetries=0
+         参考: 
+          http://stackoverflow.com/questions/29168157/does-feign-retry-require-some-sort-of-configuration/29171449
+          https://github.com/spring-cloud/spring-cloud-netflix/issues/1577
+          https://github.com/spring-cloud/spring-cloud-netflix/issues/1295
+          https://github.com/spring-cloud/spring-cloud-netflix/issues/970
+
+    # https://github.com/Netflix/Hystrix/wiki/Configuration#execution.isolation.strategy
+    # zuul.host.socket-timeout-millis=60000
+    # zuul.host.connect-timeout-millis=60000
+
+    #Hystrix's default request timeout configuration: 
+    # hystrix.command.default.execution.timeout.enabled=true                         #Default Value  true
+    # hystrix.command.default.execution.isolation.thread.strategy=THREAD             #Default Value THREAD
+    # hystrix.command.default.execution.isolation.thread.timeoutInMilliseconds=1000  #Default Value  1000
+
+    # ribbon.eureka.enabled=true
+    # ribbon.ReadTimeout=60000
+    # ribbon.ConnectTimeout=60000
+
+        1. 重试时间／重试次数是否可以配置
+        2. cousumer模块sleep，测试timeout
+        3. 观察ribbon和hystrix的timeout以及相互之间的影响
+    
+9: 集群监控／聚合监控
+    Hystrix-dashboard是一款针对Hystrix进行实时监控的工具，通过Hystrix Dashboard可以在直观地看到各Hystrix Command的请求
+    响应时间, 请求成功率等数据。但只使用Hystrix Dashboard的话, 你只能看到单个应用内的服务信息（监控地址是具体某一个实例的端口）. 
+    在复杂的分布式系统中，相同服务的节点经常需要部署上百甚至上千个，我们需要一个工具能把相同服务的节点状态以一个整体集群的形式展现
+    到Hystrix Dashboard上, 这个工具就是Turbine.
+
+    HystrixDashboard: 
+        pom依赖: 
+            #父工程、版本仲裁同注册中心一样
+            #同fegin工程
+            #  <dependency>
+            #    <groupId>org.springframework.cloud</groupId>
+            #    <artifactId>spring-cloud-starter-hystrix</artifactId>
+            #  </dependency>
+            #  <dependency>
+            #    <groupId>org.springframework.cloud</groupId>
+            #    <artifactId>spring-cloud-starter-hystrix-dashboard</artifactId>
+            #  </dependency>
+            #  <!-- 如果不加，访问minitor的时候会报Unable to connect to Command Metric Stream.-->
+            #  <dependency>
+            #    <groupId>org.springframework.boot</groupId>
+            #    <artifactId>spring-boot-starter-actuator</artifactId>
+            #  </dependency>
+            注: spring-boot-starter-parent 和 仲裁版本（需要1.5以后）不对会报错: 
+              ClassNotFoundException:org.springframework.boot.web.servlet.ServletRegistrationBean
+
+        注解: 主类: @EnableHystrixDashboard + @EnableCircuitBreaker
+              实现监控方式：以下两种情况都是把@HystrixCommand 加在需要被监控的方法上，只能加在方法上
+              1. 无@FeignClient的方式: @HystrixCommand
+              2. 有@FeignClient的方式: @HystrixCommand（加在FeignClient所在类/接口的方法上无效，参考：springcloud-learn-hystrix-dashboard）
+
+        Tips: Hystrix的监控数据默认是保存在每个实例的内存中的，Spring Boot提供了多种方式，可以导入到Redis、TSDB以供日后分析使用。 
+
+    Turbine: 
+        turbine是聚合服务器发送事件流数据的一个工具，hystrix的监控中，只能监控单个节点，实际生产中都为集群，
+            因此可以通过 turbine 来监控集群下hystrix的metrics情况，通过eureka来发现hystrix服务。
+        pom依赖: 
+            #父工程、版本仲裁同注册中心一样.  具体参考：springcloud-learn-hystrix-dashboard-turbine
+            Turbine客户端: 
+
+            被监控应用: 
+                  # <dependency>
+                  #   <groupId>org.springframework.cloud</groupId>
+                  #   <artifactId>spring-cloud-starter-hystrix</artifactId>
+                  # </dependency>
+                  # <dependency>
+                  #   <groupId>org.springframework.boot</groupId>
+                  #   <artifactId>spring-boot-starter-actuator</artifactId>
+                  # </dependency>
+            
+        注解: 
+            Turbine客户端：主类: @EnableTurbine + @EnableHystrixDashboard
+            被监控应用：主类: @EnableCircuitBreaker
+
+            注意: 1.如果监控的应用不是FeignClient，没有用到@FeignClient注解，需要在被监控的方法上加@HystrixCommand（没有熔断的
+                  方法上需要加---未确认）
+                  2.如果是controller，需要加在implements的方法上
+
+        配置文件: 
+            # turbine:
+            #   aggregator:
+            #     clusterConfig: RIBBON-CONSUMER #must be uppercase
+            #   appConfig: ribbon-consumer
+            只要修改注册中心，同时把以上配置修改为注册中心上的服务，而该服务启用了DashBoard，即可实现集群监控。
+
+10: 分布式链路监控（Zipkin，Spring-Cloud-Sleuth）
+    Sleuth是根据Google的dapper论文而来、是Spring Cloud的组件之一，为SpringCloud应用实现了分布式追踪解决方案，兼容Zipkin, HTrace和log-based(e.g. ELK)
+    # http://www.jianshu.com/p/6d6b52c7624f
+
+    - 提供链路追踪。通过sleuth可以很清楚的看出一个请求都经过了哪些服务。可以很方便的理清服务间的调用关系。
+    - 可视化错误。对于程序未捕捉的异常，可以在zipkin界面上看到。
+    - 分析耗时。通过sleuth可以很方便的看出每个采样请求的耗时，分析出哪些服务调用比较耗时。当服务调用的耗时随着请求量的增大而增大时，也可以对服务的扩容提供一定的提醒作用。
+    - 优化链路。对于频繁地调用一个服务，或者并行地调用等，可以针对业务做一些优化措施。
+
+    Instrumentation: 
+      Spring Cloud Sleuth自动装配所有Spring应用，因此你不用做任何事来让他工作，装配是使用一系列技术添加的，例如对于一个servlet web
+      应用我们使用一个Filter，对于SpringIntegration我们使用ChannelInterceptors。简单说即通过拦截器(Filter)处理http请求头信息，
+      把需要日志打印的信息放入slf4j.MDC，logback获取相应信息输出到文件、控制台等(不建议直接从logback通过网络导出lagstash、kafka等)。
+      # 用户可以通过配置spring.sleuth.keys.http.headers(一系列头名称)添加request headers。
+    
+    术语(Terminology): 
+      Span: 基本工作单元，等于一个request+response，span通过一个64位ID唯一标识，trace以另一个64位ID表示，span还有其他数据信息，
+            比如摘要、时间戳事件、关键值注释(tags)、span的ID、以及进度ID(通常是IP地址)span在不断的启动和停止，同时记录了时间信息，
+            当你创建了一个span，你必须在未来的某个时刻停止它。
+      Trace: 一系列spans组成的一个树状结构，例如，如果你正在跑一个分布式大数据工程，你可能需要创建一个trace。
+      Annotation: 用来及时记录一个事件的存在，一些核心annotations用来定义一个请求的开始和结束
+                  - cs- Client Sent -客户端发起一个请求，这个annotion描述了这个span的开始
+                  - sr- Server Received -服务端获得请求并准备开始处理它，如果将其sr减去cs时间戳便可得到网络延迟
+                  - ss- Server Sent -注解表明请求处理的完成(当请求返回客户端)，如果ss减去sr时间戳便可得到服务端需要的处理请求时间
+                  - cr- Client Received -表明span结束，客户端成功接收服务端回复，cr减去cs可得到客户端从服务端获取回复的所需时间
+    
+    pom依赖: 
+    #http://tech.lede.com/2017/04/19/rd/server/SpringCloudSleuth/
+      - 仅Sleuth(log收集): spring-cloud-starter-sleuth #日志中MDC格式：[appname,traceId,spanId,exportable：是否导出到Zipkin]
+      - 通过HTTP使用基于Zipkin的Sleuth: spring-cloud-starter-sleuth + spring-cloud-starter-zipkin
+      - Spring Cloud Stream + Sleuth: spring-cloud-sleuth-stream + spring-cloud-starter-sleuth + rabbit/kakfa
+      - Spring Cloud Stream + Sleuth + Zipkin: spring-cloud-sleuth-zipkin-stream + spring-cloud-starter-sleuth + rabbit/kakfa
+    
+    度量(metrics): 
+      - spring-cloud-sleuth-zipkin: 应用将生成并收集Zipkin-compatible traces，一般会通过HTTP将这些traces发送给一个本地
+        Zipkin服务器(port 9411)，使用spring.zipkin.baseUrl来配置服务的地址
+      - spring-cloud-sleuth-stream: 应用将通过Spring Cloud Stream生成并收集traces，应用自动成为tracer消息的生产者，这些
+        消息会通过你的中间件分发(e.g. RabbitMQ,Apache Kafka,Redis)
+
+    抽样(Samling)-采集器(Sampler): 
+      Sampler战略：抽样导出部分spans，而不是全部的spans；用户可以控制抽样算法。如果使用spring-cloud-sleuth-zipkin或
+      spring-cloud-sleuth-stream，PercentageBasedSampler是默认的，但是可通过spring.sleuth.sampler.percentage配置输出，
+      默认情况下您将在日志中看到跟踪，但不会在任何远程存储中，需要在ApplicationController里自定义采集器：
+      # @Bean
+      # public AlwaysSampler defaultSampler() {
+      #     return new AlwaysSampler();
+      # }
+
+    Span生命周期: 
+      - start-当打开一个span时，其名字被指定且开始时间戳被记录
+      - close- span已经结束(span的结束时间已被记录)并且如果span是输出的，他将是Zipkin合适的收集项，span在当前线程也将被移除
+      - continue- span的一个新实例将被创建，然而他将是正是正在运行的span的一个复制体
+      - detach- span不会停止或关闭，他只会被从当前线程中移除
+      - create with explicit parent-建立一个新的span并设置一个明确的parent给他
+
+    命名spans: @SpanName注解
+
+    流程: 
+      span --写入--> BlockingQueue(1000) <--拉取-- Flush线程 --http调用--> zipkinServer --> DB／ES  --> UI展示
+      - zipkinServer重启后客户端会把数据重新flush进zipkinServer
+      将Span和Trace在一个系统中使用Zipkin注解的过程图形化: http://www.jianshu.com/p/6d6b52c7624f
+
+    和pinpoint对比：
+      pinpoint使用HBase作为存储，没有zipking+sleuth的社区强大、活跃，zipking+sleuth和springcloud集成的更好。
+
+
+100: 参数设置
+  Command 配置:
+    # //使用命令调用隔离方式,默认:采用线程隔离,ExecutionIsolationStrategy.THREAD  
+    # private final HystrixProperty<ExecutionIsolationStrategy> executionIsolationStrategy;   
+    # //使用线程隔离时，调用超时时间，默认:1秒  
+    # private final HystrixProperty<Integer> executionIsolationThreadTimeoutInMilliseconds;   
+    # //线程池的key,用于决定命令在哪个线程池执行  
+    # private final HystrixProperty<String> executionIsolationThreadPoolKeyOverride;   
+    # //使用信号量隔离时，命令调用最大的并发数,默认:10  
+    # private final HystrixProperty<Integer> executionIsolationSemaphoreMaxConcurrentRequests;  
+    # //使用信号量隔离时，命令fallback(降级)调用最大的并发数,默认:10  
+    # private final HystrixProperty<Integer> fallbackIsolationSemaphoreMaxConcurrentRequests;   
+    # //是否开启fallback降级策略 默认:true   
+    # private final HystrixProperty<Boolean> fallbackEnabled;   
+    # // 使用线程隔离时，是否对命令执行超时的线程调用中断（Thread.interrupt()）操作.默认:true  
+    # private final HystrixProperty<Boolean> executionIsolationThreadInterruptOnTimeout;   
+    # // 统计滚动的时间窗口,默认:5000毫秒circuitBreakerSleepWindowInMilliseconds  
+    # private final HystrixProperty<Integer> metricsRollingStatisticalWindowInMilliseconds;  
+    # // 统计窗口的Buckets的数量,默认:10个,每秒一个Buckets统计  
+    # private final HystrixProperty<Integer> metricsRollingStatisticalWindowBuckets;//number of buckets in the statisticalWindow  
+    # //是否开启监控统计功能,默认:true  
+    # private final HystrixProperty<Boolean> metricsRollingPercentileEnabled;   
+    # // 是否开启请求日志,默认:true  
+    # private final HystrixProperty<Boolean> requestLogEnabled;   
+    # //是否开启请求缓存,默认:true  
+    # private final HystrixProperty<Boolean> requestCacheEnabled; // Whether request caching is enabled.
+
+  熔断器（Circuit Breaker）配置:
+    # // 熔断器在整个统计时间内是否开启的阀值，默认20秒。也就是10秒钟内至少请求20次，熔断器才发挥起作用  
+    # private final HystrixProperty<Integer> circuitBreakerRequestVolumeThreshold;   
+    # //熔断器默认工作时间,默认:5秒.熔断器中断请求5秒后会进入半打开状态,放部分流量过去重试  
+    # private final HystrixProperty<Integer> circuitBreakerSleepWindowInMilliseconds;   
+    # //是否启用熔断器,默认true. 启动  
+    # private final HystrixProperty<Boolean> circuitBreakerEnabled;   
+    # //默认:50%。当出错率超过50%后熔断器启动.  
+    # private final HystrixProperty<Integer> circuitBreakerErrorThresholdPercentage;  
+    # //是否强制开启熔断器阻断所有请求,默认:false,不开启  
+    # private final HystrixProperty<Boolean> circuitBreakerForceOpen;   
+    # //是否允许熔断器忽略错误,默认false, 不开启  
+    # private final HystrixProperty<Boolean> circuitBreakerForceClosed;
+
+  线程池(ThreadPool)配置:
+    # /** 
+    # 配置线程池大小,默认值10个. 
+    # 建议值:请求高峰时99.5%的平均响应时间 + 向上预留一些即可 
+    # */  
+    # HystrixThreadPoolProperties.Setter().withCoreSize(int value)  
+    # /** 
+    # 配置线程值等待队列长度,默认值:-1 
+    # 建议值:-1表示不等待直接拒绝,测试表明线程池使用直接决绝策略+ 合适大小的非回缩线程池效率最高.所以不建议修改此值。 
+    # 当使用非回缩线程池时，queueSizeRejectionThreshold,keepAliveTimeMinutes 参数无效 
+    # */  
+    # HystrixThreadPoolProperties.Setter().withMaxQueueSize(int value)  
+
+101: 高可用微服务实践
+    # 部署、集成
+    Docker: 部署容器
+    TeamCity: 持续集成工具，JetBrains工具
+
+    # 服务端协议
+    JSON: 服务端协议；没有使用 gRCP + Protobuf是因为后期对日志进行标准化（这样就可以将它们聚合到一个独立的系统里）时，
+          从 gRPC 中抽取日志非常麻烦。
+
+    # 系统稳定性-容器性能数据分析
+    cAdvisor: 分析容器的资源使用情况和性能特征
+    InfluxDB: 存储cAdvisor的分析结果
+    Grafana: 根据InfluxDB的数据创建仪表盘
+
+    # 系统稳定性-服务治理
+    Hystrix: 回路断路器（Circuit Breaker），客户端实现了这种模式
+    Zipkin: 是由 Twitter 开源的，实现分布式跟踪
+
+    # 系统稳定性-统一日志处理
+    Elasticsearch、Logstash 和 Kibana（ELK）: 日志存储
+    Sentry: 智能地收集错误日志，并形成【度量指标】，还会进行一些基本的过滤，来了解系统的状态
+
+    # 系统稳定性-发版
+    Nomad: 编排系统
+    Kubernetes: 由Nomad前一过来
+
+    # 系统稳定性-自动化发版
+    GitLab CI: 配合yml，确定应用如何独立、分别部署到各自的容器
+
+    # 系统稳定性-配置中心
+    Consul: 作为服务发现的注册中心
+    Vault: 存储敏感数据，比如密码、秘钥和其他所有不能保存在 Git 上的东西。
+
+    # 辅助功能
+    消息总线: 系统会因此失去强一致性。这个时候你没有超级服务，也不知道每个服务的状态，就涉及到分布式事务。不过，这样的系统很容易维护。
+
+    预生产环境的负载测试: 确定边界并存入 InfluxDB
+
+    决策服务: 检查两个边界：上限和下限。如果超出了上限，那么就应该增加服务实例。如果超出下限，那么就减少实例。如果负载下降（比
+            如晚上的时候），我们就不需要这么多机器，可以减少它们的数量，并关掉一部分机器，省下一些费用。
+
+
+102: Eureka 2.0
+    - 2.0是一个专为云部署而设计的服务发现框架，其目标是更具可扩展性，并用精细的订阅模式取代基于拉式的模型。
+    - 2.0由一个写入和读取群集组成，
+    - 注册表 -> 驱逐队列 -> 从注册表中删除 如果调用了注销：注册表 -> 从注册表中删除
+    - 
+
+
+
+
+
+
+
+
+
+
+990: Eureka Server相互不同步数据
+  Eureka Server相互注册后可能出现无法同步数据的情况。具体表现是每个Eureka Server上的续约数都不一样，同时在General Info标签下别的
+  Eureka Server显示为”unavailable-replicas”。这是因为Eureka通过serviceUrl.defaultZone解析到副本的hostname，与实例互相注册
+  时的hostname对比，来判断副本是不是available。而我们application.properties的配置是：
+ 
+  # eureka.client.serviceUrl.defaultZone=http://common-eureka1:1111/,http://common-eureka2:1111/
+  
+  这就导致Eureka认为这两个Server的hosts应该是common-eureka1和common-eureka2。但实际上，这两台机器的hostname配置却是hz-kfk-01
+  和hz-kfk-02，这就导致Eureka Server相互注册时使用的hostname也是hz-kfk-01和hz-kfk-02。因此，这两台Eureka Server被判定为
+  unavailable。解决这个问题的方式是保证配置和机器实际的hostname配置一致。实际上，我们也可以配置eureka.instance.preferIpAddress=
+  true来保证Eureka Server相互注册时hostname使用IP地址，同时使用IP地址作为eureka.client.serviceUrl.defaultZone的配置值。
+
+
+
+
+
+
+
+  
+

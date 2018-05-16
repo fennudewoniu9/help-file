@@ -1,0 +1,56 @@
+■■■■■■安装■■■■■■
+wget http://mirror.bit.edu.cn/apache/hadoop/common/hadoop-1.2.1/hadoop-1.2.1.tar.gz
+cp ./hadoop-1.2.1.tar.gz /opt/
+tar -zxvf hadoop-1.2.1.tar.gz
+
+
+■■■■■■配置■■■■■■
+◆hadoop-env.sh：配置jdk路径
+
+◆core-site.xml：
+<property>
+<name>hadoop.tmp.dir</name>
+<value>/hadoop</value>
+</property>
+
+<property>
+<name>dfs.name.dir</name>
+<value>/hadoop/name</value>
+</property>
+
+<property>
+<name>fs.default.name</name>
+<value>hdfs://localhost:9000</value>
+</property>
+
+◆hdfs-site.xml
+<property>
+<name>dfs.data.dir</name>
+<value>/hadoop/data</value>
+</property>
+
+◆mapred-site.xml
+<property>
+<name>mapred.job.tracker</name>
+<value>localhost:9001</value>
+</property>
+
+■■■■■■生效■■■■■■
+vi /etc/profile
+add:
+HADOOP_HOME=/opt/hadoop-1.2.1
+PATH=.......:/HADOOP_HOME/bin
+source /etc/profile
+
+■■■■■■启动■■■■■■
+◆hadoop namenode -format
+◆jps:查看Hadoop信息
+◆hadoop fs -ls
+
+[user@localhost hadoop]$ jps
+6886 Jps
+
+
+QA◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆hadoop fs -ls◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆
+ls: Call From localhost.localdomain/127.0.0.1 to localhost:9000 failed on connection exception: java.net.ConnectException: Connection refused; For more details see:  http://wiki.apache.org/hadoop/ConnectionRefused
+

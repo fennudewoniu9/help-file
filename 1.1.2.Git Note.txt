@@ -1,0 +1,237 @@
+#Git 实战【工作区-->暂存区-->本地仓库-->远程仓库】
+与SVN区别：SVN是物理寻址系统（路径），Git是内容寻址系统（哈希值）
+
+EGit插件地址：http://download.eclipse.org/egit/updates
+/* commit的是index区域里的，add操作就是更新index区域 */
+
+0.git cat-file
+  支持将校验和解密开（Object下）
+  # https://zhuanlan.zhihu.com/p/25989135
+
+1.查看日志
+ git log
+  查看reset后的log
+      git reflog  // 里面记录了所有操作对应的hashId
+  再使用reset hashid即可回到log中看不到的版本
+
+  用git log --graph命令可以看到分支合并图
+
+2.查看个人信息
+ git config --list
+ 
+3.修改个人信息
+ git config --global user.name "John Doe"
+ git config --global user.email johndoe@example.com
+
+4.查看各个branch/tag的哈希值
+ git rev-parse dev_20150625_04
+
+5.比较两个branch的不同（modify的用不同颜色标识出来）
+ git diff --color-words dev_20150625_02 dev_20150625_01
+
+  查看工作区和版本库里面最新版本的区别：git diff HEAD -- fileName //一定要有空格，判断当前分支和远程仓库的区别：git diff HEAD -- *
+
+6.新建分支（以在master分支上新建为例）
+  git checkout master
+  git branch new_branch
+  git checkout new_branch
+  或者
+  git checkout -b new_branch
+  git push origin 20170826//提交新建的分支
+  git push origin 20170826//在执行一次，提交在新建分支上commit的代码，经过验证：不需要这一步，上一步会把所有的push
+
+  git branch -v 查找远程分支
+  git branch branch_name remote_name/branch 基于远程仓库创建新分支
+  git checkout -b branch_name remote_name/branch基于远程仓库创建新分支并且切换到新分支
+
+  如果git pull提示“no tracking information”，则说明本地分支和远程分支的链接关系没有创建，用命令:
+  git branch --set-upstream branch-name origin/branch-name
+
+7.查看远程分支
+  git branch -a（显示本地+远程所有分支）
+
+  git tag -l(显示本地所有tag)
+  git branch -l(显示本地所有branch)
+  git show tagName
+
+8.删除分支
+    方式1:
+       #删除本地分支：
+         git branch -D unUsedBranchName（大写：强删，小写：不强删）
+       #删除远程分支
+         git push origin :dev20121221（冒号+分支名）
+
+       #如果删除时报error: unable to push to unqualified destination
+       #尝试以下命令
+         git branch -r -d origin/my_remote_branch
+    方式2:
+      远程
+        git push origin --delete dev_20150718_01
+      本地
+        git branch -D dev_20150709
+
+9.删除tag
+   远程
+    git push origin --delete tag <tagname>
+   本地
+    git tag -d <tagname>
+    git push origin :<tagname>    //注意冒号
+
+    git tag v1.0          //基于最新的commit打tag
+    git tag v0.9 6224937  //基于过去的commit打tag（6224937:历史的一个commit hash id）,等于git tag -a v0.9 -m "msg" 6224937（可以不加-a）
+    git show v0.9         //查看某tag的详情
+    还可以通过-s用私钥签名一个标签：git tag -s v0.2 -m "msg" fec145a
+
+10.本地提交所有的tag
+   git push origin ref/tags/branch //具体的tag/branch号
+   git push origin --tags（提交本地tag号）
+
+11.合并分支
+ git checkout master
+ git merge new_branch
+ git push origin HEAD
+    注：Fast forward合并模式在log中看不到合并的历史记录，可以在合并的时候加参数不使用FF模式（git merge --no-ff -m "merge with no-ff" devBranch）
+
+ 如果冲突，用git status查阅
+ 提交：git commit -a -m 'fixed bug 53'
+
+ 冲突:
+ <<<<<<<<<<<<<< HEAD
+ 本地数据库内容
+ ==============
+ 远程数据库内容
+ >>>>>>>>>>>>>> dev_20150807
+
+
+12.比较新分支和master区别
+   见5
+
+13.回滚【reset】
+ reset是指将当前head的内容重置，不会留任何痕迹。
+ git reset --hard HEAD~3         //会将最新的3次提交全部重置，就像没有提交过一样。
+
+     A). --hard：重设（reset） index和working directory，自从<commit>以来在working directory中的任何改变都被丢弃，并把HEAD指向<commit>。 
+     B). --soft：index和working directory中的内容不作任何改变，仅仅把HEAD指向<commit>。这个模式的效果是，执行完毕后，自从<commit>以来的所有改变都会显示在git status的"Changes to be committed"中。 
+     C). --mixed：仅reset index，但是不reset working directory，这个模式是默认模式。
+
+14.回滚【revert】
+ 回滚一些commit，去除由这些commit引入的改变，并且用一个新的commit来记录这个回滚操作。这个命令要求working tree必须是干净的。
+
+ A) git revert HEAD~3
+ B) git revert -n master~5..master~2：丢弃从最近的第五个commit（包含）到第二个（不包含）,但是不自动生成commit，这个revert仅仅修改working tree和index。
+
+
+ 		【git revert 和 git reset的区别 】
+			1. git revert是用一次新的commit来回滚之前的commit，git reset是直接删除指定的commit。 
+			2. 在回滚这一操作上看，效果差不多。但是在日后继续merge以前的老版本时有区别。因为git revert是用一次逆向的commit“中和”之前的提交，因此日后合并老的branch时，导致这部分改变不会再次出现，但是git reset是之间把某些commit在某个branch上删除，因而和老的branch再次merge时，这些被回滚的commit应该还会被引入。 
+			3. git reset 是把HEAD向后移动了一下，而git revert是HEAD继续前进，只是新的commit的内容和要revert的内容正好相反，能够抵消要被revert的内容。 
+
+13 - 14
+      在Git中，用HEAD表示当前版本，也就是最新的提交3628164...882e1e0（注意我的提交ID和你的肯定不一样），上一个版本就是HEAD^，上上一个版本就是HEAD^^，当然往上100个版本写100个^比较容易数不过来，所以写成HEAD~100。
+      现在，我们要把当前版本回退到上一个版本，就可以使用git reset命令：
+      $ git reset --hard HEAD^
+      HEAD is now at ea34578 add distributed
+
+15.删除区域中的内容
+ git rm --cached a.txt 		#移除文件(只从暂存区中删除)
+ git rm a.txt 				#移除文件(从暂存区和工作区中删除)
+ #以上两个命令删除后在index显示deleted，下面的命令只是从index放回workspace区域
+ git reset HEAD <file>
+ #git rm --cached file will remove the file from the stage. That is, when you commit the file will be removed. 
+ #git reset HEAD -- file will simply reset file in the staging area to the state        
+ #where it was on the HEAD commit, i.e. will undo any changes you did to it since last commiting. 
+ #If that change happens to be newly adding the file, then they will be equivalent.
+ Unstages file,keeping the file changes:
+  git reset [file]
+ rever everything to the last commit:
+  git reset --hard
+
+16.查看提交的详细记录
+ git show <commit的hash值>
+
+17.删除非管理对象的文件
+ git clean
+
+18.还原工作区里的文件【撤销修改/删除】
+ git checkout -- <file>    //一定要加空格
+ git checkout .            //回滚没有加到index区的所有文件，且不会亚盏，所以要慎重操作
+
+18.1.还原索引（暂存区）里的文件【重新放回工作区】
+ git reset HEAD <file>    //然后再使用18操作
+
+19.删除已添加到索引的文件
+ git reset HEAD -- <file>
+
+20.stash
+ git stash
+ git stash list
+ git stash pop
+
+git stash #将工作区现场（已跟踪文件）储藏起来，等以后恢复后继续工作。 
+git stash list #查看保存的工作现场 
+git stash apply #恢复工作现场 
+git stash drop #删除stash内容 
+git stash pop #恢复的同时直接删除stash内容 
+git stash apply stash@{0} #恢复指定的工作现场，当你保存了不只一份工作现场时。
+
+21.拉取最新代码
+ git pull rebase
+
+================================================================================
+http://toyroom.bruceli.net/tw/2011/02/04/install-git-server-on-ubuntu-linux.html
+http://www.cnblogs.com/xiaoya901109/archive/2012/08/03/2620664.html
+================================================================================
+
+
+================================================================================
+[torres572@LDEV-D302 logs(master)]$ git push origin HEAD
+git@172.16.101.215's password: 
+Total 0 (delta 0), reused 0 (delta 0)
+remote: error: refusing to update checked out branch: refs/heads/master
+remote: error: By default, updating the current branch in a non-bare repository
+remote: error: is denied, because it will make the index and work tree inconsistent
+remote: error: with what you pushed, and will require 'git reset --hard' to match
+remote: error: the work tree to HEAD.
+remote: error: 
+remote: error: You can set 'receive.denyCurrentBranch' configuration variable to
+remote: error: 'ignore' or 'warn' in the remote repository to allow pushing into
+remote: error: its current branch; however, this is not recommended unless you
+remote: error: arranged to update its work tree to match what you pushed in some
+remote: error: other way.
+remote: error: 
+remote: error: To squelch this message and still keep the default behaviour, set
+remote: error: 'receive.denyCurrentBranch' configuration variable to 'refuse'.
+To git@172.16.101.215:/ledger/be-sch-srv
+ ! [remote rejected] HEAD -> master (branch is currently checked out)
+error: failed to push some refs to 'git@172.16.101.215:/ledger/be-sch-srv'
+--------------------------------------------------------------------------------
+这是由于git默认拒绝了push操作，需要进行设置，修改.git/config添加如下代码：
+    [receive]
+    denyCurrentBranch = ignore
+
+在初始化远程仓库时最好使用 git --bare init   而不要使用：git init
+如果使用了git init初始化，则远程仓库的目录下，也包含work tree，当本地仓库向远程仓库push时,如果
+远程仓库正在push的分支上（如果当时不在push的分支，就没有问题）, 那么push后的结果不会反应在work tree
+上,  也即在远程仓库的目录下对应的文件还是之前的内容，必须得使用git reset --hard才能看到push后的内容.
+================================================================================
+
+
+
+
+
+Create a new repository
+
+git clone git@172.16.101.84:username/ssss.git
+cd ssss
+touch README.md
+git add README.md
+git commit -m "add README"
+git push -u origin master
+
+Existing folder or Git repository
+
+cd existing_folder
+git init
+git remote add origin git@172.16.101.84:username/ssss.git
+git push -u origin master
+

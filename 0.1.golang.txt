@@ -1,0 +1,5 @@
+1: command
+  - go run ./hello.go  =  go build + ./hello
+  # run后同级目录下不会生成hello文件，build的会
+
+  不支持AOP，可以使用golang blog推荐的context对象
