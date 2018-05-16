@@ -1,5 +1,0 @@
-速度、性能：jackson > fastjson > gson
-
-1: fastjson这么快老外为啥还是热衷 jackson? #https://www.zhihu.com/question/44199956
-fastjson就是一个代码质量较差的国产类库，用很多投机取巧的的做法去实现所谓的“快”，而失去了原本应该兼容的java特性，对json标准遵循也不严格，自然
-很难在国际上流行。

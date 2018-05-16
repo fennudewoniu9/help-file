@@ -1,6 +1,0 @@
-一般说RESTful都是指RESTful Web Service
-浅显点说，REST/RESTful大概就是以下的实现步骤
-1. 用URL/URI来表示Object 例如 http://www.example.com/order/111111 来表示一个订单
-2.用标准的HTTP协议来完成逻辑操作，通常有以下几个对应 HTTP Get来获得一个订单的内容，HTTP Put来更新一个订单， HTTP Post来新增一个订单， HTTP Delete来删除一个订单。
-3. 无状态，一般指的是服务器端不保留任何操作和事务的状态，也就不存在类似回滚的操作
-一般来说RESTful适合逻辑标记清晰的Web服务，交换数据一般用xml json yaml这种，另外像Java有更详细的Restful标准JAX-RS。
