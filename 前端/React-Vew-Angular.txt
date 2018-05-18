@@ -1,3 +1,0 @@
-http://www.infoq.com/cn/articles/subversion-front-end-ui-development-framework-react
-1.虚拟DOM（Virtual DOM）机制：只处理变化部分、可以批处理；但是单向数据流，多个输入框需要配合多个函数
-2.Angularjs；双向数据绑定；但是复杂的路由、指令、作用域，可读性、可维护性差

@@ -1,0 +1,6 @@
+【Spark／Storm】【Flume】【Mongodb】:
+    Spark 由加州大学伯克利分校 AMP 实验室 (Algorithms, Machines, and People Lab) 开发，可用来构建大型的、低延迟的数据分析应用程序。它将批
+  处理、流处理、即席查询融为一体。Spark 社区也是相当火爆，平均每三个月迭代一次版本更是体现了它在大数据处理领域的地位。
+    Spark Streaming 不同于 Storm，Storm 是基于事件级别的流处理，Spark Streaming 是 mini-batch 形式的近似流处理的微型批处理。
+    Flume 相较于 Logstash 有更大的吞吐量，而且与 HDFS 整合的性能比 Logstash 强很多。
+    Elasticsearch 具有海量存储海量聚合的能力，但是同 Mongodb 一样，并不适合于写入数据非常多（1 万 TPS 以上）的场景。

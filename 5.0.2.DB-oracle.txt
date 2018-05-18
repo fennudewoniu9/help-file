@@ -1,0 +1,22 @@
+调增sequence
+
+create TABLE tmp (tmp_cln VARCHAR2(32));
+ALTER TABLE tmp  modify tmp_cln varchar2(32);
+select * from tmp;
+drop TABLE tmp;
+
+BEGIN
+  DECLARE
+    x number;
+  BEGIN
+    x:=42991;
+    <<repeat_loop>>  --循环点
+    x:=x-1;
+    DBMS_OUTPUT.PUT_LINE(X);
+    INSERT INTO tmp(tmp_cln) select SEQ_T_SYS_DICTIONARY.nextval from dual;
+    IF X>0
+    THEN
+      GOTO repeat_loop;  --??x???С?9ʱ,??oto??repeat_loop
+    END IF;
+  END;
+END ;

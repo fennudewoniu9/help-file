@@ -1,0 +1,83 @@
+Hadoop-Kafka-ES数据存储架构:
+      一个应用请求的计算，离它操作的数据越近就越高效，在数据达到海量级别的时候更是如此。因为这样就能降低网络阻塞的影响，提高系统数据的吞吐量。将计算移
+    动到数据附近，比之将数据移动到应用所在显然更好。HDFS为应用提供了将它们自己移动到数据附近的接口。 
+
+1: Hadoop:
+      HDFS被设计成支持大文件，适用HDFS的是那些需要处理大规模的数据集的应用。这些应用都是只写入数据一次，但却读取一次或多次，并且读取速度应能满足流式
+    读取的需要，并且严格要求在任何时候只能有一个写入者。
+      一个典型的数据块大小是64MB。因而，HDFS中的文件总是按照64M被切分成不同的块，每个块尽可能地存储于不同的Datanode中。
+      HDFS被设计成能够在一个大集群中跨机器可靠地存储超大文件。它将每个文件存储成一系列的数据块，除了最后一个，所有的数据块都是同样大小的。为了容错，
+    文件的所有数据块都会有副本。每个文件的数据块大小和副本系数都是可配置的。应用程序可以指定某个文件的副本数目。副本系数可以在文件创建的时候指定，也可
+    以在之后改变。
+      Namenode全权管理数据块的复制，在大多数情况下，副本系数是3，HDFS的存放策略是将一个副本存放在本地机架的节点上，一个副本放在同一机架的另一个节点
+    上，最后一个副本放在不同机架的节点上。这种策略减少了机架间的数据传输，这就提高了写操作的效率。机架的错误远远比节点的错误少，所以这个策略不会影响到
+    数据的可靠性和可用性。于此同时，因为数据块只放在两个（不是三个）不同的机架上，所以此策略减少了读取数据时需要的网络传输总带宽。在这种策略下，副本并
+    不是均匀分布在不同的机架上。三分之一的副本在一个节点上，三分之二的副本在一个机架上，其他副本均匀分布在剩下的机架中，这一策略在不损害数据可靠性和读
+    取性能的情况下改进了写的性能。
+      当客户端向HDFS文件写入数据的时候，一开始是写到本地临时文件中。假设该文件的副本系数设置为3，当本地临时文件累积到一个数据块的大小时，客户端会从
+    Namenode获取一个Datanode列表用于存放副本。然后客户端开始以pipeline（管道）的形式向第一个Datanode传输数据，第一个Datanode一小部分一小部分
+    (4 KB)地接收数据，将每一部分写入本地仓库，（第一个Datanode）并同时传输该部分到列表中第二个Datanode节点。第二个 Datanode也是这样，一小部分一小
+    部分地接收数据，写入本地仓库，并同时传给第三个Datanode。最后，第三个Datanode接收数据并存储在本地。因此，Datanode能流水线式地从前一个节点接收数
+    据，并在同时转发给下一个节点，数据以流水线的方式从前一个Datanode复制到下一个。
+    总结: 
+      由client负责向申请到的datanode写数据，线性复制需要写入的数据到每个datanode，即每个datanode都是下一个的leader（这点区别于kafka），即同一个
+    文件会分散的分布在不同的datanode（这点和kafka一样）
+
+2: Kafka:
+      一个Topic可以认为是一类消息，每个topic将被分成多个partition(区),即每个tipic的一批消息会均衡的分布在不同的broker上，每个partition在存储层
+    面是append log文件。任何发布到此partition的消息都会被直接追加到log文件的尾部，每条消息在文件中的位置称为offset（偏移量），offset为一个long型
+    数字，它是唯一标记一条消息。
+      partitions的设计目的有多个.最根本原因是kafka基于文件存储.通过被分布在kafka集群中的多个server上,可以将日志内容分散到多个server上,来避免文件
+    尺寸达到单机磁盘的上限,每个partiton都会被当前server(kafka实例)保存;一个topic可以切分任意多个partitions,来保证保存/消费的效率.此外越多的
+    partitions意味着可以容纳更多的consumer,有效提升并发消费的能力.每个server(kafka实例)负责partitions中消息的读写操作;此外kafka还可以配置
+    partitions需要备份的个数(replicas),每个partition将会被备份到多台机器上,以提高可用性.
+      基于replicated方案,那么就意味着需要对多个备份进行调度;每个partition都有一个server为"leader";leader负责所有的读写操作,如果leader失效,那么
+    将会有其他follower来接管(成为新的leader);follower需要和leader保持同步.Follower和consumer一样,消费消息并保存在本地日志中;leader负责跟踪所
+    有的follower状态,如果follower"落后"太多或者失效,leader将会把它从replicas同步列表中删除.当所有的follower都将一条消息保存成功,此消息才被认为
+    是"committed",那么此时consumer才能消费它.即使只有一个replicas实例存活,仍然可以保证消息的正常发送和接收,只要zookeeper集群存活即可.(不同于其
+    他分布式存储,比如hbase需要"多数派"存活才行)....由此可见作为leader的server承载了全部的请求压力,因此从集群的整体考虑,有多少个partitions就意味
+    着有多少个"leader",kafka会将"leader"均衡的分散在每个实例上,来确保整体的性能稳定.
+      
+      Producer消息路由
+      Producer发送消息到broker时，会根据Paritition机制选择将其存储到哪一个Partition。如果Partition机制设置合理，所有消息可以均匀分布到不同的
+    Partition里，这样就实现了负载均衡。如果一个Topic对应一个文件，那这个文件所在的机器I/O将会成为这个Topic的性能瓶颈，而有了Partition后，不同的消
+    息可以并行写入不同broker的不同Partition里，极大的提高了吞吐率。可以在$KAFKA_HOME/config/server.properties中通过配置项num.partitions来指
+    定新建Topic的默认Partition数量， # 也可在创建Topic时通过参数指定，同时也可以在Topic创建之后通过Kafka提供的工具修改。
+      在kafka中,一个partition中的消息只会被group中的一个consumer消费;每个group中consumer消息消费互相独立;我们可以认为一个group是一个"订阅"者,
+    一个Topic中的每个partions,只会被一个"订阅者"中的一个consumer消费,不过一个consumer可以消费多个partitions中的消息.kafka只能保证一个partition
+    中的消息被某个consumer消费时,消息是顺序的.
+      事实上,从Topic角度来说,消息仍不是有序的.因此,对于一个topic,同一个group中不能有多于partitions个数的consumer同时消费,否则将意味着某些
+    consumer将无法得到消息.
+      这是Kafka用来实现一个Topic消息的广播（发给所有的Consumer）和单播（发给某一个Consumer）的手段。一个Topic可以对应多个Consumer Group。如果需
+    要实现广播，只要每个Consumer有一个独立的Group就可以了。要实现单播只要所有的Consumer在同一个Group里。用Consumer Group还可以将Consumer进行自
+    由的分组而不需要多次发送消息到不同的Topic。
+      kafka和JMS（Java Message Service）实现(activeMQ)不同的是:即使消息被消费,消息仍然不会被立即删除.日志文件将会根据broker中的配置要求,保留一
+    定的时间之后删除;比如log文件保留2天,那么两天后,文件会被清除,无论其中的消息是否被消费.kafka通过这种简单的手段,来释放磁盘空间,以及减少消息消费之后
+    对文件内容改动的磁盘IO开支.这里要注意，因为Kafka读取特定消息的时间复杂度为O(1)，即与文件大小无关，所以这里删除过期文件与提高Kafka性能无关。选择
+    怎样的删除策略只与磁盘以及具体的需求有关。
+    总结: 
+      由client根据Partition机制确定合适的Partition，再由该Partition的Leader Replica写数据，同时Leader Replica向有所Follower Replica并发复
+    制需要写入的数据（这点区别于hadoop），即同一个Topic的一批消息会分散的分布在不同的Paritition（这点和hadoop一样）
+
+3: ElasticSearch:
+      Elasticsearch集群中的每个节点都包含了该节点上分片（类似kafka中的Partitioin）的元数据信息。协调节点(默认)使用文档ID参与计算，以便为路由提供
+    合适的分片。Elasticsearch使用 MurMurHash3 函数对文档ID进行哈希，其结果再对分片数量取模，得到的结果即是索引文档的分片。
+      当分片所在的节点接收到来自协调节点的请求后，会将该请求写入translog(我们将在本系列接下来的文章中讲到)，并将文档加入内存缓冲。如果请求在主分片上
+    成功处理，该请求会并行发送到该分片的副本上。当translog被同步(fsync)到全部的主分片及其副本上后，客户端才会收到确认通知。
+      内存缓冲会被周期性刷新(默认是1秒)，内容将被写到文件系统缓存的一个新段上。虽然这个段并没有被同步(fsync)，但它是开放的，内容可以被搜索到。
+      每30分钟，或者当translog很大的时候，translog会被清空，文件系统缓存会被同步。这个过程在Elasticsearch中称为冲洗(flush)。在冲洗过程中，内存
+    中的缓冲将被清除，内容被写入一个新段的fsync将创建一个新的提交点，并将内容刷新到磁盘。旧的translog将被删除并开始一个新的translog。
+    总结: 
+      由client根据hash文档ID确定合适的分片，分片把文件写入自己的节点上，同时该分片作为主分片复制到其对应的副本分片上（这点和kafka一样，但区别于
+    hadoop），即同一个索引的一批文件会分散的分布在不同的分片（这点和kafka、hadoop一样）
+
+4: 总结:
+  1.hadoop是线性写入，每一个datanode是下一个的数据提供者，而kafka和ES都是主从；
+  2.kafka、ES数据存储都是分布式加备份的，但kafka、ES根据算法确定每次写入请求的数据应该放在什么节点上，hadoop是根据NameNode返回的列表确认的。
+
+5: ignite: 
+  1.客户端hashid选择patition
+  2.先写disk再写到内存区域（主从成功模式有两种-是否全部commit）
+
+
+

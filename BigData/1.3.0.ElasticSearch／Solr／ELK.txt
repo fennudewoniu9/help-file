@@ -1,0 +1,402 @@
+【ELK】:
+ELK Stack 是开源日志处理平台解决方案，背后的商业公司是 Elastic(https://www.elastic.co/)。
+它由日志采集解析工具 Logstash、全文搜索引擎 Elasticsearch、分析可视化平台 Kibana 组成。
+目前 ELK 的用户有 Adobe、Microsoft、Facebook、Stackoverflow、Cisco等诸多知名厂商。
+
+【自己玩环境】:
+具体如下：root／123456， sharuser／123123  t9/123123
+  10.199.212.113 free：2.7G
+  10.199.212.114 free：2.3G
+  10.199.212.115 free：2G
+
+  10.199.212.117 free：13G
+  10.199.212.118 free：0.2G
+
+【ElasticSearch】:
+————————————————————————————————————————————————————————————————————————
+————————————————————————————————基础—————————————————————————————————————
+1: 简介
+  - ElasticSearch和Solr都是基于Lucene的搜索引擎，不过ElasticSearch天生支持分布式，
+    而Solr是4.0版本后的SolrCloud才是分布式版本，Solr的分布式支持需要ZooKeeper的支持。
+    #http://i.zhcy.tk/blog/elasticsearchyu-solr/
+    Elasticsearch 与 Solr 的比较总结: 
+      二者安装都很简单
+      Solr 利用 Zookeeper 进行分布式管理，而 Elasticsearch 自身带有分布式协调管理功能;
+      Solr 支持更多格式的数据，而 Elasticsearch 仅支持json文件格式；
+      Solr 官方提供的功能更多，而 Elasticsearch 本身更注重于核心功能，高级功能多有第三方插件提供；
+      Solr 是传统搜索应用的有力解决方案，但 Elasticsearch 更适用于新兴的实时搜索应用。Solr是最流行的企业级搜索引擎。
+      Solr 在传统的搜索应用中表现好于 Elasticsearch，但在处理实时搜索应用时效率明显低于 Elasticsearch。
+  - 基于Apache Lucene构建的开源、全文搜索引擎，目的就是去Luncene的复杂化
+  - java编写，RESTFul API
+  - 支持横向扩展，支持PB级的结构化、非结构化数据处理   
+  - 版本：有2.x直接到5.x，主要是为了组建集的版本统一，5.x的性能增加25%，磁盘减少一半
+
+2: 插件 
+  * elasticsearch-head: 是一个elasticsearch的集群管理工具
+    github地址：https://github.com/mobz/elasticsearch-head
+    ES-Head集成：   
+      - npm install     //npm需要6.0以上(未验证)
+      - 修改./config/elasticsearch.yaml，添加两个变量:
+         http.cors.enabled: true
+         http.cors.allow-origin: "*"
+  * elasticsearch-sql: 使用SQL语法查询elasticsearch
+    github地址：https://github.com/NLPchina/elasticsearch-sql
+  * elasticsearch-bigdesk: 是elasticsearch的一个集群监控工具，可以通过它来查看ES集群的各种状态
+  * elasticsearch-servicewrapper插件: 是ElasticSearch的服务化插件，
+    github地址：https://github.com/elasticsearch/elasticsearch-servicewrapper
+    安装：将service目录拷贝到elasticsearch目录的bin目录下
+  * Sense: 交互式的控制台 https://www.elastic.co/guide/cn/elasticsearch/guide/current/running-elasticsearch.html
+
+
+3: 启动 
+  es: ./bin/elasticsearch -d  //后台启动，默认是9200端口，地址：http://localhost:9200 
+  head: npm run start  //默认是9100端口，地址：http://localhost:9100（集群健康值:绿色） 
+
+4: 集群 
+  - 同一个集群:
+    在同一台机器上，只要cluster.name相同，就会自动发现集群并加入。但是在不同机器上启动节点的时候，需要配置一个可连接到的单播主机列表。
+  - 节点:
+    主节点：参与master选举(法定节点)，node.master：true（默认启用）
+    数据节点：持有数据和倒排索引，node.data：true（默认启用）
+    协调节点：负责负载均衡，将请求路由到各个节点，然后聚合各个节点返回的数据，node.data：false，node.data：false，node.ingest：false
+    摄取节点：在编制索引之前转换和丰富文档，负载较重，node.ingest：true（默认启用）
+  - 分片、副本:
+    - 默认是创建5个分片，一个备份；（类似kafka里的一个patition包括5个Leader Replica，一个Follower Replica）分片创建后数量不可修改，备份可以。 
+  - 修改./config/elasticsearch.yaml，添加变量:     
+    master：                  
+      cluster.name: linlin    //集群名，默认是elasticsearch      
+      node.name: master       //节点名      
+      node.master: true       //是否参与master选举，default：true       
+      #node.data: true        //是否存储数据，本次试验不配置，缺省值是“true”，意味着默认情况下每个elasticsearch节点也将是一个数据节点
+      network.host: 127.0.0.1     
+    slave：                  
+      cluster.name: linlin                  
+      node.name: slave1/slave2                  
+      network.host: 127.0.0.1                  
+      http.port: 9201/9202                  
+      discovery.zen.ping.unicast.hosts: ["127.0.0.1"]
+  - minimum_master_nodes: # 参与选举的最小法定节点数，如果你有3个候选master节点，和100个data节点，法定数就是2。法定节点：master候选节点
+        一般设置为整个集群节点个数的一半加1，即N/2+1，可以减少部分脑裂情况的发生，集群失去主节点后客户端立马不可用（CAP：CP）
+        对于双节点群集，minimum_master_nodes设置为2，从而限制裂脑问题的可能性，但失去高可用性。可以添加一个新节点，node.data参数设置为
+    “false”。这意味着该节点永远不会保留任何碎片，但可以选为主（默认行为）。由于新节点是无数据节点，因此可以在更便宜的硬件上启动。现在你有三个节
+    点的集群，可以安全地将minimum_master_nodes设置为2，避免了裂脑，仍然能够丢失一个节点而不丢失数据。
+        当扩容后，法定节点数可能会变化，minimum_master_nodes(还有一些其它配置)允许通过 API 调用的方式动态进行配置。PUT /_cluster/settings 
+    # http://blog.trifork.com/2013/10/24/how-to-avoid-the-split-brain-problem-in-elasticsearch/
+  - discovery.zen.ping.timeout:  # 失主后多久开始进行master选举，default 3s
+    zen发现（禅宗发现）是内置于Elasticsearch的发现模块和默认设置。discovery ping的超时时间，拥塞网络，网络状态不佳的情况下设置高一点
+  - 即使集群节点个数为奇数，也难以避免脑裂的发生: #主节点与其他N/2+1失去通信，其他N/2+1节点会选举出一个主节点
+    https://github.com/elastic/elasticsearch/issues/2488
+  - discovery.zen.ping.unicast.hosts: ["host1", "host2:port"]
+    Elasticsearch 默认被配置为使用单播发现，以防止节点无意中加入集群。它只是需要足够的节点，当一个新节点联系上其中一个并且说上话就可以了。如果你
+    使用 master 候选节点作为单播列表，你只要列出三个就可以了。 
+
+4.1: 集群恢复
+  - rebalance:
+    丢失节点后会启动分片复制；如果丢失的节点重新加入后，这些节点会发现它们的数据正在被复制到其他节点，会他们删除本地数据；然后整个集群重新进行平衡
+    ⚠️注：es集群要使用内网ip，否则会出现数据恢复缓慢的现象。
+  - 集群rebalance相关配置: 
+    # 以下三个配置不可以通过API动态修改
+    # 这三个设置可以在集群重启的时候避免过多的分片交换。这可能会让数据恢复从数个小时缩短为几秒钟。
+    - gateway.recover_after_nodes: 8
+          集群提供服务之前你希望有多少个节点在线？这种情况下，我们设置为 8，这意味着至少要有 8 个节点，该集群才可用.
+          阻止 Elasticsearch 在存在至少 8 个节点（数据节点或者 master 节点）之前进行数据恢复(rebalance).
+    - gateway.expected_nodes: 10
+    - gateway.recover_after_time: 5m
+          等待集群至少存在 8 个节点
+          等待 5 分钟，或者10 个节点上线后，才进行数据恢复，这取决于哪个条件先达到。
+
+  - 如果你遇到了性能问题，解决方法通常是更好的数据布局或者更多的节点，在 Elasticsearch 中很少有“神奇的配置项”， 如果存在，我们也已经帮你优化了:
+
+4.2: 路径
+  - 默认情况下，Elasticsearch 会把插件、日志以及你最重要的数据放在安装目录下。
+    # Path to data files，数据可以保存到多个不同的目录，可以将每个目录分别挂载不同的硬盘，这是一个简单且高效实现一个软磁盘阵列（RAID 0）的办法
+    path.data: /path/to/data1,/path/to/data2 
+    # Path to log files:
+    path.logs: /path/to/logs
+    # Path to where plugins are installed:
+    path.plugins: /path/to/plugins
+
+
+5: 概念 
+  索引：相当于database，相同属性的文档集合            
+    结构化索引：mappings有值            
+    非结构化索引：mappings无值 
+  类型：相当于table，索引可以定义一个或多个类型，文档必须属于一个类型 
+  文档：相当于row，被索引的基本数据单位  
+  Fields：相当于Column
+  分片：每个索引有多个分片，每个分片是一个Luncene索引 备份：一份分片的拷贝 
+
+6: 创建索引 
+  - API格式：http://<ip>:<port>/<索引>/<类型>/<文档>(http://local:9200/car/byd/_mappings) 
+  - postman创建方式：       
+    put:http://localhost:9200/people       
+    body:row,application/json          
+        #{
+        #  "settings": {
+        #    "number_of_shards": "3",
+        #    "number_of_replicas": "1"
+        #  },
+        #  "mappings": {
+        #    "man": {
+        #      "properties": {
+        #        "name": {
+        #          "type": "text"
+        #        },
+        #        "country": {
+        #          "type": "keyword"
+        #        },
+        #        "age": {
+        #          "type": "integer"
+        #        },
+        #        "date": {
+        #          "type": "date",
+        #          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis"
+        #        }
+        #      }
+        #    },
+        #    "woman": {
+        #      "properties": {
+        #        "name": {
+        #          "type": "text"
+        #        }
+        #      }
+        #    }
+        #  }
+        #} 
+    - 常用http动词：GET/PUT/POST/DELETE 
+    - Head插件里，粗线框的是主分片，细的是从分片 
+    - Settings是修改分片和副本数的，Mappings是修改字段和类型的。 
+    - Mapping：就是对索引库中索引的字段名称及其数据类型进行定义，类似于mysql中的表结构信息。不过es的mapping比数据库灵活很多，它可
+      以动态识别字段。一般不需要指定mapping都可以，因为es会自动根据数据格式识别它的类型，如果你需要对某些字段添加特殊属性（如：定义
+      使用其它分词器、是否分词、是否存储等），就必须手动添加mapping。我们在es中添加索引数据时不需要指定数据类型，es中有自动影射机制
+      ，字符串映射为string，数字映射为long。通过mappings可以指定数据类型是否存储等属性。 
+
+7: Read
+  - 读操作包含2部分内容：
+    * 查询阶段
+    * 提取阶段
+
+  - 查询阶段
+    在这个阶段，协调节点会将查询请求路由到索引的全部分片(主分片或者其副本)上。每个分片独立执行查询，并为查询结果创建一个优先队列，以相
+    关性得分排序(我们将在本系列的后续文章中讲到)。全部分片都将匹配文档的ID及其相关性得分返回给协调节点。协调节点创建一个优先队列并对结
+    果进行全局排序。会有很多文档匹配结果，但是，默认情况下，每个分片只发送前10个结果给协调节点，协调节点为全部分片上的这些结果创建优先
+    队列并返回前10个作为hit。
+  - 提取阶段
+    当协调节点在生成的全局有序的文档列表中，为全部结果排好序后，它将向包含原始文档的分片发起请求。全部分片填充文档信息并将其返回给协调节点。
+
+8: 插入数据 
+  - 指定文档ID插入    
+    URL:http://localhost:9200/people/man/1    
+    Type:PUT    
+    Data: {"name":"熊猫","country":"China","age":12,"date":"1990-01-01"}    
+    #生成的ID：1 
+  - 自动产生文档ID插入    URL:http://localhost:9200/people/man    
+    Type:POST    
+    Data: {"name":"大熊猫","country":"China","age":13,"date":"1990-01-02"}    
+    #生成的ID：AV-ewOMTw2ZGYXmuYDni 
+
+9: 修改数据 
+  - 直接修改    URL:http://localhost:9200/people/man/1/_update    
+    Type:POST    
+    Data: {"doc":{"name":"新大熊猫"}}  
+  - 脚本修改    
+    URL:http://localhost:9200/people/man/1/_update    
+    Type:POST    
+    Data1: {"script":{"lang":"painless","inline":"ctx._source.age =+ 10"}}    
+    Data2: {"script":{"lang":"painless","inline":"ctx._source.age = params.age","params":{"age":100}}}//所有age加1 
+
+10: 删除数据 
+  - 删除文档    URL:http://localhost:9200/people/man/1 
+    Type:DELETE  
+  - 删除索引(还可以在Head插件里直接可视化的删除)    
+    URL:http://localhost:9200/people    
+    Type:DELETE 
+
+11: 查询数据 
+  - id查询 
+    Get:
+      URL: http://localhost:9200/people/man/1 
+
+  - 全部查询（分页）   
+    POST:      
+      URL: http://localhost:9200/people/_search       
+      Data:
+        # {
+        #   "query": {
+        #     "match_all": {}
+        #   },
+        #   "from": 1,
+        #   "size": 12
+        # } 
+  - 条件查询（分页+条件+排序）     
+    POST:      
+      URL: http://localhost:9200/people/_search       
+      Data:
+            # {
+            #   "query": {
+            #     "match": {
+            #       "age": 13
+            #     }
+            #   },
+            #   "sort": [
+            #     {
+            #       "age": {
+            #         "order": "desc"
+            #       }
+            #     }
+            #   ],
+            #   "from": 1,
+            #   "size": 12
+            # }       
+  - 聚合查询     
+    POST:      
+      URL: http://localhost:9200/people/_search       
+      Data: 
+            # {
+            #   "aggs": {
+            #     "group_by_age": {
+            #       "terms": {
+            #         "field": "age"
+            #       }
+            #     },
+            #     "group_by_country": {
+            #       "terms": {
+            #         "field": "country"
+            #       }
+            #     }
+            #   }
+            # } 
+  - 分析查询     
+    POST:      
+      URL: http://localhost:9200/people/_search       
+      Data: 
+            # {
+            #   "aggs": {
+            #     "group_by_age": {
+            #       "stats": {//也可以换成min/max/avg....
+            #         "field": "age"
+            #       }
+            #     }
+            #   }
+            # } 
+
+12: query（高级查询，且返回匹配度） 
+  match: 模糊匹配（自动拆分输入法的值） 
+  match_phrase: 精确匹配 
+  multi_match: {"query":"要查询的值", "fields":["字段1", "字段2"]} 
+  query_string: 文本查询，可以在query里使用and/or 
+  range: 范围查询 
+  term: 字段查询 
+
+13: filter（只返回是否满足，es会对结果进行缓存，比query快） 
+  query+bool+filter+term 
+
+14: 关键字：must、must_not、固定分数查询 
+
+15: SpringBoot集成es 
+  - 如果是集群，需要把每一个node加到config里 
+  - es包提供了json构造工具类XContextFactory 
+  - 增删改查的方法有点类似JDBC，是preper的
+
+———————————————————————————————————————————————————————————————————————————
+————————————————————————————————高级———————————————————————————————————————
+———————————————————————————————————————————————————————————————————————————
+1: 倒排索引
+      索引结构是关键词到文档ID映射关系，在互联网海量关键词的情况下可以提高查询效率。与之相反的是文档ID到关键词的映射关系，称之为正向索引。
+      搜索引擎的索引其实就是实现“单词-文档矩阵”的具体数据结构（hadoop）。可以有不同的方式来实现上述概念模型，比如“倒排索引”、“签名文件”、“后缀树”等
+  方式。但是各项实验数据表明，“倒排索引”是实现单词到文档映射关系的最佳实现方式。
+
+2: GC
+      Elasticsearch 默认的垃圾回收器（ GC ）是 CMS。 这个垃圾回收器可以和应用并行处理，以便它可以最小化停顿。 然而，它有两个 stop-the-world 
+  阶段，处理大内存也有点吃力。尽管有这些缺点，它还是目前对于像 Elasticsearch 这样低延迟需求软件的最佳垃圾回收器。官方建议使用 CMS。
+      G1 垃圾回收器（ G1GC ）。 这款新的 GC 被设计，旨在比 CMS 更小的暂停时间，以及对大内存的处理能力。 它的原理是把内存分成许多区域，并且预测
+  哪些区域最有可能需要回收内存。通过优先收集这些区域（ garbage first ），产生更小的暂停时间，从而能应对更大的内存。听起来很棒！遗憾的是，G1GC 还
+  是太新了，经常发现新的 bugs。这些错误通常是段（ segfault ）类型，便造成硬盘的崩溃。 Lucene 的测试套件对垃圾回收算法要求严格，看起来这些缺陷 
+  G1GC 并没有很好地解决。我们很希望在将来某一天推荐使用 G1GC，但是对于现在，它还不能足够稳定的满足 Elasticsearch 和 Lucene 的要求。
+
+3: 线程池
+      许多人 喜欢 调整线程池。 无论什么原因，人们都对增加线程数无法抵抗。索引太多了？增加线程！搜索太多了？增加线程！节点空闲率低于 95％？增加线程！
+  Elasticsearch 默认的线程设置已经是很合理的了。对于所有的线程池（除了 搜索 ），线程个数是根据 CPU 核心数设置的，避免上下文切换。
+      你可能会认为某些线程可能会阻塞（如磁盘上的 I／O 操作），所以你才想加大线程的。对于 Elasticsearch 来说这并不是一个问题：因为大多数 I／O 的操
+  作是由 Lucene 线程管理的，而不是 Elasticsearch。
+      基于以上两个（线程切换、IO阻塞）原因及解释，所以尽量不需要调整线程池的大小。
+  # https://www.elastic.co/guide/cn/elasticsearch/guide/current/dont-touch-these-settings.html
+
+4: 内存
+  - 堆大小 # config/jvm.options
+    默认值:
+      -Xms2g
+      -Xmx2g
+      # 相等以避免在每次GC 后调整堆的大小
+  - 非堆内存（off-heap）
+    Lucene使用的内存，Lucene 被设计为可以利用操作系统底层机制来缓存内存数据结构。 Lucene 的段是分别存储到单个文件中的。因为段是不可变的，这些文件也
+    都不会变化，这是对缓存友好的，同时操作系统也会把这些段文件缓存起来，以便更快的访问。
+  - 大内存
+    这里有另外一个原因不分配大内存给 Elasticsearch。事实上，JVM 在内存小于 32 GB 的时候会采用一个内存对象指针压缩技术。
+    # 内存对象指针压缩技术：在Java中，所有的对象都分配在堆上，并通过一个指针进行引用，如果指针在主内存和各级缓存（例如 LLC，L1 等）过大，指针在主内
+    # 存和各级缓存之间移动数据的时候，会占用更多的带宽。Java 使用一个叫作 内存指针压缩（compressed oops）的技术来解决这个问题。它的指针不再表示对
+    # 象在内存中的精确位置，而是表示偏移量。这意味着32位的指针可以引用40亿个对象，而不是40亿个字节。一旦你越过这个神奇的32GB的边界，指针就会切回普
+    # 通对象的指针。每个对象的指针都变长了，就会使用更多的CPU内存带宽，也就是你实际上失去了更多的内存。事实上，当内存达到40~50GB的时候，有效内存才
+    # 相当于内存对象指针压缩技术时候的32GB内存。即便你有足够的内存，也尽量不要超过32GB。因为它浪费了内存，降低了CPU的性能，还要让GC应对大内存。
+
+5: 文件描述符
+  Lucene 使用了大量的文件。同时，Elasticsearch在节点和HTTP客户端之间进行通信也使用了大量的套接字。所有这一切都需要足够的文件描述符。但是，许多现代
+  的Linux发行版本，每个进程默认允许一个微不足道的1024文件描述符。这对一个小的Elasticsearch节点来说实在是太低了，更不用说一个处理数以百计索引的节点。
+  # https://www.elastic.co/guide/cn/elasticsearch/guide/current/_file_descriptors_and_mmap.html
+
+6: 生产主要问题
+  可用的文件描述符太少、脑裂、内存设置
+
+
+
+概述:
+ElastiSearch天生就是 分布式的 ，它知道如何通过管理多节点来提高扩容性和可用性。 这也意味着你的应用无需关注扩容问题。
+
+ElasticSearch 的主旨是随时可用和按需扩容。 而扩容可以通过购买性能更强大（ 垂直扩容 ，或 纵向扩容 ） 或者数量更多的服务器（ 水平扩容 ，或 横向扩容 ）
+来实现。真正的扩容能力是来自于水平扩容--为集群添加更多的节点，并且将负载压力和稳定性分散到这些节点中。
+
+集群、节点:
+集群是由一个或者多个拥有相同 cluster.name 配置的节点组成。当有节点加入集群中或者从集群中移除节点时，集群将会重新平均分布所有的数据。
+当一个节点被选举成为 主 节点时， 它将负责管理集群范围内的所有变更，例如增加、删除索引，或者增加、删除节点等。 而主节点并不需要涉及到文档级别的变更和
+搜索等操作，所以当集群只拥有一个主节点的情况下，即使流量的增加它也不会成为瓶颈。 任何节点都可以成为主节点。我们的示例集群就只有一个节点，所以它同时也
+成为了主节点。
+用户可以将请求发送到 集群中的任何节点 ，包括主节点。 每个节点都知道任意文档所处的位置，并且能够将我们的请求直接转发到存储我们所需文档的节点。 无论我
+们将请求发送到哪个节点，它都能负责从各个包含我们所需文档的节点收集回数据，并将最终结果返回給客户端。 Elasticsearch 对这一切的管理都是透明的。
+
+索引:
+索引 —— 保存相关数据的地方。索引实际上是指向一个或者多个物理分片的逻辑命名空间。一个分片是一个底层的工作单元，它仅保存了全部数据中的一部分。应用程序是
+直接与索引而不是与分片进行交互。
+
+分片:
+一个主分片最大能够存储 Integer.MAX_VALUE - 128个文档，但是实际最大值还需要参考你的使用场景：包括你使用的硬件，文档的大小和复杂程度，索引和查询文档
+的方式以及你期望的响应时长。索引在默认情况下会被分配5个主分片。在索引建立的时候就已经确定了主分片数，但是副本分片数可以随时修改。
+
+
+
+集群健康:
+GET /_cluster/health
+status 字段指示着当前集群在总体上是否工作正常。它的三种颜色含义如下：
+green：所有的主分片和副本分片都正常运行。
+yellow：所有的主分片都正常运行，但不是所有的副本分片都正常运行。
+red：有主分片没能正常运行。
+{
+  "cluster_name": "elasticsearch",
+  "status": "yellow", 
+  "timed_out": false,
+  "number_of_nodes": 1,
+  "number_of_data_nodes": 1,
+  "active_primary_shards": 3,
+  "active_shards": 3,
+  "relocating_shards": 0,
+  "initializing_shards": 0,
+  "unassigned_shards": 3, # 没有被分配到任何节点的副本分片（当前测试环境：一个node一个索引，在同一个节点上既保存原始数据又保存副本是没有意义的）
+  "delayed_unassigned_shards": 0,
+  "number_of_pending_tasks": 0,
+  "number_of_in_flight_fetch": 0,
+  "task_max_waiting_in_queue_millis": 0,
+  "active_shards_percent_as_number": 50
+}
+
+
+
+

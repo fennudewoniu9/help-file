@@ -101,6 +101,7 @@ http://ifeve.com/buffers/
 
 
 ■ Netty
+	- mina与netty都是Trustin Lee的作品，所以在很多方面都十分相似 # http://ifeve.com/netty-mina-in-depth-1/
 	- Netty主要是对Nio进行了封装，解决了复杂调用、规避了潜在bug的风险，比如epoll空转导致CPU利用率100%的问题（底层操作系
 		统在没有获得selectKey的时候，即返回0的时候，也会改变坚挺状态，导致JDK调用select.selector（）方法的时候依然会返回值，不停的执行
 		while代码块，具体参考：http://www.10tiao.com/html/308/201602/401718035/1.html）

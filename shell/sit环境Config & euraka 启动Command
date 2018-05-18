@@ -1,0 +1,4 @@
+sit环境Config & euraka 启动Command：
+
+nohup java -jar app-config-0.0.1-SNAPSHOT.jar > logs/config.log &
+nohup java -jar app-server-0.0.1-SNAPSHOT.jar > logs/app-config.log &
