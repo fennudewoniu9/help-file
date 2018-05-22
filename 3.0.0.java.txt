@@ -1,3 +1,7 @@
+java不太欢迎继承，因为耦合度高，因为C++的前车之鉴，所以Java发明了接口，以契约的方式向你提供功能。（C++也可以做到这些，那就是定义没有成员变量
+的纯虚类，而且所有函数都是纯虚函数。可是这些都是要靠程序员自己把握，并没有把这些功能集成到类似Interface这样的语法里。）
+
+
 ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm30/index.html
       - ASM 能够通过改造既有类，直接生成需要的代码。增强的代码是硬编码在新生成的类文件内部的，没有反射(java Proxy)带来性能上的付出。
       - 同时，ASM 与 Proxy 编程不同，不需要为增强代码而新定义一个接口，生成的代码可以覆盖原来的类，或者是原始类的子类。
@@ -348,15 +352,27 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     interrupted: 本线程中断自己是被允许的；其它线程调用本线程的interrupt()方法时，会通过checkAccess()检查权限。这有可能抛出SecurityException
     异常。如果本线程是处于阻塞状态，调用线程的wait(), wait(long)或wait(long, int)会让它进入等待(阻塞)状态，调用了它的interrupt()方法，那
     么它的“中断状态”会被清除并且会收到一个InterruptedException异常。
-    LockSupport: 是用来创建锁和其他同步类的基本线程阻塞原语。park和wait的区别。wait让线程阻塞前，必须通过synchronized获取同步锁。
 
-    * synchronized与lock: sync是控制不同线程之间访问权限不可重入，lock是控制包括自己在内的线程间访问权限可重入，且sync的粒度是包括this的
-    对象（其实是对象监视器），比lock的粒度大，lock是通过AQS中的state（int）和以Thread为key来配合控制访问权限的。
+    LockSupport: 是用来创建锁和其他同步类的基本线程阻塞原语。park和wait的区别。wait让线程阻塞前，必须通过synchronized获取同步锁。LockSupport
+    中的park() 和 unpark() 的作用分别是阻塞线程和解除阻塞线程，而且park()和unpark()不会遇到“Thread.suspend 和 Thread.resume所可能引发的死
+    锁”问题。
+    # Thread mainThread = Thread.currentThread();
+    # LockSupport.park(mainThread);
+    # LockSupport.unpark(mainThread);
+
+    * synchronized与lock: sync是控制不同线程之间访问权限不可重入，lock是控制包括自己在内的线程间访问权限可重入，且sync的粒度是包括this的对象（其
+    实是对象监视器），比lock的粒度大（即同一个thread也不能重入）lock是通过AQS中的state（int）和以Thread为key来配合控制访问权限的。且sync一旦被某
+    个线程获取，所有sync修饰的代码快、方法等都会阻塞，但非sync部分不会。
+
+    * Condition的await()、signal()与Object的await()、signal(): Object中的wait(),notify(),notifyAll()方法是和"同步锁"(synchronized)捆绑
+    使用的；而Condition是需要与"互斥锁"/"共享锁"捆绑使用的。
 
   - AQS & Sync:
     AQS(AbstractQueuedSynchronizer类)是一个用来构建锁和同步器的框架,它在内部定义了一个int state变量,用来表示同步状态.在LOCK包中的相关锁(
     常用的有ReentrantLock、 ReadWriteLock)都是基于AQS来构建.然而这些锁都没有直接来继承AQS,而是定义了一个Sync类去继承AQS.那么为什么要这样
-    呢?because:锁面向的是使用用户,而同步器面向的则是线程控制,那么在锁的实现中聚合同步器而不是直接继承AQS就可以很好的隔离二者所关注的事情.
+    呢?because:锁面向的是使用用户,而同步器面向的则是线程控制,那么在锁的实现中聚合同步器而不是直接继承AQS就可以很好的隔离二者所关注的事情.（其实在
+    ReentrantLock中都有一个类似AQS的结构，即内部类Sync，而ReentrantLock、 ReadWriteLock实现了Lock接口，成员方法也是一些针对锁的操作，这也就
+    是上面说的锁和访问器分开的低层实现）
     # 链接：https://zhuanlan.zhihu.com/p/27134110
     AQS中Node成员变量: 
         volatile Node prev;

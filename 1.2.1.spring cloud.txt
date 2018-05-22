@@ -22,6 +22,7 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
 8: TimeOut
 9: 集群监控／聚合监控(HystrixDashboard，Turbine)
 10: 分布式链路监控（Zipkin，Spring-Cloud-Sleuth）
+    补充: 日志监控-ELK，指标监控-prometheus、influxdb，传统监控用开源的zabbix比较多，但是zabbix配置比较复杂，在微服务情况下不太适用。
 11: 消息总线(Spring Cloud Bus)----TODO
 100: 参数设置
 101: 高可用微服务实践
