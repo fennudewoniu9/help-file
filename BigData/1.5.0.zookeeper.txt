@@ -3,6 +3,18 @@
   Chubby服务端和客户端（包括客户端缓存），数据同步类似 Eureka 的服务端和客户端，通过轮训或者事件发布／订阅
   Chubby底层日志持久化类似 Hadoop 的Editlog和fsImage，方便宕机重启后快速恢复
 
+
+******目录******
+1: 分布式一致性
+2: 一致性协议(算法)
+3: ZooKeeper概要
+4: ZooKeeper安装
+5: Java API
+6: 开源客户端
+7: ZK典型应用场景
+8: ZK技术内幕
+
+
 1: 分布式一致性: 
   种类: 保证数据一致性会因为阻塞降低性能，提高性能必然会降低一致性，所以对于一个系统，性能和一致性需要平衡。一般一致性有三种：
     强一致性: 类似Kafka等Patition的leader和Replica之间的数据写确认（全部replica确认写成功的情况）
@@ -116,9 +128,13 @@
               不支持事务、关联查询，少量数据时查询效率不如传统的关系型数据库，但支持高并发、海量、随意扩容、节点失效后高可用。
 
 
-3: ZooKeeper: 
+3: ZooKeeper概要: 
     2011年成为Apache顶级项目，从Apache Hadoop子项目发展来的，雅虎创建，是Google Chubby的开源实现。提供高效、可靠的分布式协调服务，如统一命名、
-  配置管理、分布式锁。没有直接采用Paxos协议，用的是 ZAB 一致性协议（ZooKeeper Atomic Broadcast）。
+  配置管理、分布式锁、发布／订阅、负载均衡、master选举、分布式队列。没有采用Paxos协议，用的是 ZAB 一致性协议（ZooKeeper Atomic Broadcast）。
+
+  定义:
+    ZooKeeper是一个高可用的分布式数据管理与协调框架。
+
   三个角色: Leader、Follower、Observer 
       * 观察者不参与选举和半数以上策略
       * 非Leader接收到请求后会转发给Leader
@@ -129,13 +145,13 @@
       * 数据节点组成了类似文件系统的数据模型
 
   特点: 
-      * 集群：一般3-5台组成一个集群
-      * 顺序读写：通过选举唯一的ZXID实现顺序访问
-      * 高性能：适合以读为主要操作的应用场景
-      * 会话：通过TCP连接，存在一个类似Chubby的“宽限期”，支持客户端重连
-      * 版本：每个ZNode都有，存在stat数据结构中（命令：stat ／path），记录ZNode、ZNode子节点、ACL数据
-      * Watcher：允许客户端注册事件，在事件被触发时服务端会推送
-      * ACL：类似Unix的权限控制系统
+      * 集群: 一般3-5台组成一个集群
+      * 顺序读写: 通过选举唯一的ZXID实现顺序访问
+      * 高性能: 适合以读为主要操作的应用场景
+      * 会话: 通过TCP连接，存在一个类似Chubby的“宽限期”，支持客户端重连
+      * 版本: 每个ZNode都有，存在stat数据结构中（命令：stat ／path），记录ZNode、ZNode子节点、ACL数据
+      * Watcher: 允许客户端注册事件，在事件被触发时服务端会推送到客户端 # 一次性、需要反复注册.弊端:可能会引起羊群效应(过多无关的通知)
+      * ACL: 类似Unix的权限控制系统
 
   ZAB协议: 
       不像Paxos通用，专门为zookeeper设计的崩溃可恢复的原子消息广播算法。ZAB类似2PC，但是简化了（在收到半数而不是全部client的ACK后及发送commit）
@@ -150,12 +166,12 @@
       * 事务编号ZXID：高32位是Leader周期epoch编号，低32位是简单的递增计数器（客户端发送请求后递增），Leader、Follower、Observer都存。
       * 和Paxos的区别: 多了一个同步阶段。发现类似Paxos的提案提交竞选，广播类似提案的广播提交。同步阶段可以保证Leader在处理client请求提出新的
                       Proposal（提案）之前，所有的进群节点（所有的集群进程）都完成了之前所有已提交Proposal的提交。
-                      ZAB主要用于构建一个高可用、分布式、主备、数据系统
+                      ZAB主要用于构建一个高可用、分布式、主备、数据系统 #参考”定义“
                       Paxos主要用于构建一个高可用、分布式、一致性、状态机系统
                  总结：ZAB强调过去、现在的数据在主备上都要一致，Paxos强调现在（提案提交发生的那一次）各个节点的一致。 #参考同步阶段做的事情。
 
 
-4: ZooKeeper使用: 
+4: ZooKeeper安装: 
   模式: 集群、单机
   配置: 
         每个机器都把zoo_sample.cfg修改成zoo.cfg，然后修改以下几项配置，在dataDir下需要创建一个myid文件，只有一个数字（server.id，1—255）
@@ -218,6 +234,15 @@
     # Mode: follower
     # Node count: 1779
     # Connection closed by foreign host.
+    注: 常用的四字命令：
+                      stat: 服务端运行时状态信息 # zk版本、运行时角色、集群节点个数、当前服务器的客户端连接信息等
+                      conf: 服务端运行时配置信息
+                      envi: 服务端运行时环境配置信息 # java verion等
+                      cons: 当前这个机器上所有客户端连接的信息
+                      ruok: 检测当前zk服务器是否正常运行 # 读音类似Are you ok，输出：imok
+                      wchs: 输出当前服务器上管理的watcher概要信息
+                      wchc: 输出当前服务器上管理的watcher详细信息
+                      mntr: 比stat更详细的信息
 
   命令: 
     * 运行客户端: ./zkCli.sh # 这个默认是连接本地的，连接远程的：./zkCli.sh -server ip:port
@@ -225,25 +250,69 @@
     * 看文结点: get
     PS: 随便出入一个错误的单词就会列出所有支持的命令
 
-
-5: Java API: 
-  * 创建session时，只有服务端发送时间通知，才算创建成功
-  * 节点不支持递归创建，即无法在夫节点不存的情况下创建子节点，且如果子节点存在会报错（NodeExsitsException）
-  * ZooKeeper不负责节点内容序列化，需要自己是用Hession等序列化工具进行序列化、反序列化
-  * 节点创建有同步、异步两种方式
+  规定: 
+    * 所有非叶子节点的节点必须为持久节点
 
 
 
+5: Java API:  # 客户端版本要和服务端保持一致
+  * 创建session: zookeeper会话的建立是一个异步过程，需要等待一段时间(用CountDownLatch实现)，只有服务端发送事件通知，才算创建成功
+  * 节点不支持递归创建: 即无法在夫节点不存的情况下创建子节点，且如果子节点存在会报错（NodeExsitsException）
+  * ZooKeeper不负责节点内容序列化: 需要自己是用Hession等序列化工具进行序列化、反序列化
+  * 节点创建有同步、异步两种方式: 同步可能扔异常，异步的错误不是通过异常，而是通过返回码体现的
+  * 读取节点数据: 没有版本选项，版本主要是为了解决分布式并发问题
+  * 更新节点数据: 可以制定版本进行更新（从0开始），如果用-1代表对版本没要求，直接更新最新的版本；该机制可以避免分布式并发问题
+  * 更新节点数据: 节点注册了事件，但是对于子节点的变化，不会通知客户端
+  * 节点权限: 节点加权限后对该节点的读取控制，有效范围是本节点；但是删除控制，有效范围是子节点，即本节点即使不加权限信息依然可以删除
 
 
+6: 开源客户端: 
+  ZKClient: Stars：700+  # 客户端版本要和服务端保持一致
+    Github开源组件，实现了Session超时重连、Watcher反复注册等功能。与原生的API的区别：
+    * 创建session: 创建session时把原声的异步封装成同步的
+    * 读取节点: ZKClient获取节点内容时候自动反序列化
+    * Watcher: 用习惯的Listener实现，而且Listener里的返回值自动把原生的 获取节点变化事件、请求最新子节点列表 这两步操作合成为一步
+               Listener不是一次性的，一次注册永久有效
+
+  Curator:  Stars：1000+ # 客户端版本要和服务端保持一致
+    Netflix的开源Zeekooper客户端框架，实现了连接重连、反复注册Watcher、NodeExsitsException等，且提供Fluent风格的API接口，已是Apache顶级项目，
+    zk使用最广泛的客户端。 # Guava is to Java what Curator is to ZooKeeper
+    * 创建session: 比原生的河ZKClient更灵活，增加了重试策略和Fluent风格的API接口
+    * 创建节点: 实现了自动递归创建父节点，避免了每次创建前都判断父节点是否存在；如果节点存在不会报错，而是通过返回码体现
+    * 删除节点: 提供强制删除功能，底层通过客户端记录失败信息，重试。master选举是通过删除、新增节点实现的，这种场景下网络问题很致命
+    * 读取节点: 提供了读取数据同时还能获取stat的信息
+    * 回调: 提供BackgroundCallback接口，用来处理调用异步接口之后服务端返回的结果（CuratorEventType，码-事件类型）
+    * Watcher: 用cache实现，cache是对事件进行监听
+
+    Curator典型应用场景:
+      * master选举: 需要引入额外的jar，实现接口LeaderSelector和LeaderSelectorListenerAdapter
+      * 分布式锁: 实现接口InterProcessMutex
+      * 分布式计数器: 实现接口DistributedAtomicInteger
+      * 分布式Barrier: Barrier是多线程之间同步的经典访问模式；功能同时触发所有等待的线程同时执行各自的业务逻辑。
+                      单点：不同进程可以用JDK自带的CyclicBarrier，同一个进程不同的线程可以用CountDownLatch  
+                      分布式：Curator实现接口DistributedBarrier
+
+    Curator常用的工具类: #不需要引入额外的jar包
+      * ZKPaths: 路径递归创建、删除等功能
+      * EnsurePath: 确保节点存在（一定会创建成功且不会报异常）
+      * TestingServer: 没有zk服务器但是需要单元测试时，模拟一个标准的zk服务器，端口、datadir都可以执行。datadir如果不指定会用java.io.tmpdir
+      * TestingCluster: 类似TestingServer，TestingCluster模拟的是集群。
 
 
-
-
-
-
-
-
+7: ZK典型应用场景: 
+  * 数据发布／订阅
+  * 复杂均衡
+  * 分布式协调／通知 # 类似IgniteElasticJob，三个核心模块
+  * 集群管理
+  * master选举 # watcher和莅临节点，可以避免数据库master选举出现的master节点挂了之后其他客户端无法感知的问题
+  * 分布式锁
+  * 分布式队列 # 原理：临时顺序节点。Barrier
+  
+8: ZK技术内幕:
+  * Packet: 服务端和客户端最小的通讯单元：Packet
+  * Watcher: 所有注册到服务端的Watcher会保存在客户端的ZKWatcherManager
+  * 序列化／反序列化: Jute（核心类Record）
+  * 通讯协议: 基于TCP/IP实现的自定义通讯协议（三部分：长度、请求头、请求体） # Wireshark：网络封包分析软件
 
 
 
