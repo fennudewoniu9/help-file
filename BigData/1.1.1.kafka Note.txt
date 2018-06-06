@@ -93,6 +93,7 @@ Q&A
 1: Q: ERROR Error when sending message to topic t1 with key: null, value: 8 bytes with error: Failed to update metadata after 60000 ms. (org.apache.kafka.clients.producer.internals.ErrorLoggingCallback)
    A: check listener value in kafka.propertie and try to change it from [listeners=PLAINTEXT://hostname:9092] to [listeners=PLAINTEXT://0.0.0.0:9092]
 
+apache Kafka下线broker的操作: 
 
 
 
