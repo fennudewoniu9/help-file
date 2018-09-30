@@ -24,6 +24,7 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
 10: 分布式链路监控（Zipkin，Spring-Cloud-Sleuth）
     补充: 日志监控-ELK，指标监控-prometheus、influxdb，传统监控用开源的zabbix比较多，但是zabbix配置比较复杂，在微服务情况下不太适用。
 11: 消息总线(Spring Cloud Bus)----TODO
+12: 指标监控(Spring Boot Admin)
 100: 参数设置
 101: 高可用微服务实践
 102: Eureka 2.0
@@ -639,6 +640,7 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
                   - sr- Server Received -服务端获得请求并准备开始处理它，如果将其sr减去cs时间戳便可得到网络延迟
                   - ss- Server Sent -注解表明请求处理的完成(当请求返回客户端)，如果ss减去sr时间戳便可得到服务端需要的处理请求时间
                   - cr- Client Received -表明span结束，客户端成功接收服务端回复，cr减去cs可得到客户端从服务端获取回复的所需时间
+      # 图：https://www.jianshu.com/p/6d6b52c7624f
     
     pom依赖: 
     #http://tech.lede.com/2017/04/19/rd/server/SpringCloudSleuth/
@@ -678,6 +680,13 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
 
     和pinpoint对比：
       pinpoint使用HBase作为存储，没有zipking+sleuth的社区强大、活跃，zipking+sleuth和springcloud集成的更好。
+
+11: 消息总线(Spring Cloud Bus)----TODO
+
+12: 指标监控(Spring Boot Admin)
+  在Spring Boot Actuator的基础上提供简洁的可视化WEB UI，是用来管理 Spring Boot 应用程序的一个简单的界面。hystrix 对流量的监控状态的监控是单
+  应用的，turbine用来查看整个系统的监控状态。在spring boot admin中集成了spring-boot-admin-server-ui-turbine 这个插件。
+  Spring Boot Admin 2.0.1 at least requires Spring Boot 2.0.2
 
 
 100: 参数设置
