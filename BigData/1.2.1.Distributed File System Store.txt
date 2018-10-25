@@ -1,0 +1,24 @@
+■ GFS／HDFS／TFS区别:
+  http://itfish.net/article/11908.html(GFS --------------- HDFS区别)
+  http://www.open-open.com/lib/view/1330605869374
+  http://www.cnblogs.com/zhanghuijunjava/archive/2013/04/22/hadoop_HDFS.html(读、写)
+
+  TFS:
+  http://code.taobao.org/p/tfs/wiki/intro/
+  http://code.taobao.org/p/tfs/wiki/index/
+
+  HDFS API:
+  http://www.cnblogs.com/alisande/archive/2012/06/06/2537903.html
+  http://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-hdfs/HdfsSnapshots.html
+
+  SeaweedFS:
+    * 基于go语言开发的高可用文件存储系统（高吞吐，低延时，保证数据的一致性）
+    * 核心任务就是在处理每一次的请求中尽可能地减少磁盘操作
+      通过降低每个图片所需的元数据，进而使元数据可以完全访问（放在）内存，从而减少甚至避免获取图片元数据时的磁盘访问，提高对long tail（长尾）图片访问的速度。
+      Facebook一开始的存储系统是基于NFS的NAS(Network Attached Storage), 但这种基于POSIX的文件系统无法支撑如此大的负载。其中主要的问题在于在图片寻址的过程中会产生过多的磁盘操作。
+      #传统文件系统里面读取一个文件需要至少三次磁盘操作，第一次从硬盘中读取目录的 metadata 到内存中，然后读取inode到内存，最后才从磁盘中读取文件内容。
+      POSIX标准的文件系统：
+        1）每个目录、文件都含有元数据，并包含权限等在facebook图片存储场景中无用的信息，占用了不必要的存储空间。
+        2）查找一个文件时，需要先将磁盘上的元数据load到内存中，才能找到目标文件，磁盘访问多，效率低。
+        3）元数据访问成为瓶颈。
+  https://www.jianshu.com/p/abbad4944b8a

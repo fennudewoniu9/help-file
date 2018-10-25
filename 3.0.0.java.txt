@@ -170,16 +170,16 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     算法: 新生代复制算法、老年代标记-压缩；新生代、老年代使用串行回收
     参数控制: -XX:+UseSerialGC 串行收集器
 
-  - Parallel收集器:
-    类似ParNew收集器，Parallel收集器更关注系统的吞吐量。可以通过参数来打开自适应调节策略，虚拟机会根据当前系统的运行情况收集性能监控信息，动态
-    调整这些参数以提供最合适的停顿时间或最大的吞吐量；也可以通过参数控制GC的时间不大于多少毫秒或者比例。
-    算法: 新生代复制算法、老年代标记-压缩
-    参数控制: -XX:+UseParallelGC 使用Parallel收集器 + 老年代串行
-    # ParNew收集器: ParNew收集器其实就是Serial收集器的多线程版本，这些GC的线程依然是和用户线程是串行的。
-    #  算法: 新生代复制算法、老年代标记-压缩；新生代并行，老年代串行
-    #  参数控制: 
-    #    -XX:+UseParNewGC ParNew收集器
-    #    -XX:ParallelGCThreads 限制线程数量
+  - ParNew收集器:
+    ParNew收集器: ParNew收集器其实就是Serial收集器的多线程版本，这些GC的线程依然是和用户线程是串行的。
+     算法: 新生代复制算法、老年代标记-压缩；新生代并行，老年代串行
+     参数控制: 
+       -XX:+UseParNewGC ParNew收集器
+       -XX:ParallelGCThreads 限制线程数量
+    # 类似ParNew收集器，Parallel收集器更关注系统的吞吐量。可以通过参数来打开自适应调节策略，虚拟机会根据当前系统的运行情况收集性能监控信息，动态
+    # 调整这些参数以提供最合适的停顿时间或最大的吞吐量；也可以通过参数控制GC的时间不大于多少毫秒或者比例。
+    # 算法: 新生代复制算法、老年代标记-压缩
+    # 参数控制: -XX:+UseParallelGC 使用Parallel收集器 + 老年代串行
 
     # Parallel Old 收集器: Parallel Old是Parallel Scavenge收集器的老年代版本，这个收集器是在JDK 1.6中才开始提供
     #  算法: 使用多线程和“标记－整理”算法
