@@ -1,7 +1,9 @@
 所有分布式几乎都用到的相似的设计: 分布式天下归一
-  Chubby（Paxos算法）核心的多数同意，很多分布式架构 kaffka 等都用到了的Quorum机制
+  Chubby（Paxos算法）中的核心--多数同意；很多分布式架构 kaffka 等都用到了的Quorum机制
   Chubby服务端和客户端（包括客户端缓存），数据同步类似 Eureka 的服务端和客户端，通过轮训或者事件发布／订阅
   Chubby底层日志持久化类似 Hadoop 的Editlog和fsImage，方便宕机重启后快速恢复
+  # Chubby是什么？参考下文中的【Paxos NB的应用1 -- Google Chubby: 】
+  # paxos算法是Zookeeper的核心，Google Chubby架构师曾说，一切一致性协议都是paxos的变种。
 
 
 ******目录******
@@ -94,7 +96,7 @@
                 Chubby是一个面向松耦合分布式系统的锁服务，通常用于为一个由大量小型计算机构成的松耦合分布式系统提供高可用的分布式锁服务。（一个分
               布式锁服务的目的是允许他的客户端进程同步彼此的操作，并对所处环境的基本信息达成一致），Chubby提供了粗粒度的服务，客户端接口设计的类
               似Unix的文件系统结构，可以操作文件节点（小文件）和文件节点的锁，而开发人员直接调用客户端接口即可实现进程间粗粒度的同步控制，从而保
-              证分布式数据的一致性。
+              证分布式数据的一致性。Google Chubby并不是开源的，只有部分论文和文档，Yahoo借鉴了Chubby开发了Zookeeper
 
               # MapReduce很多人都知道，但关于Chubyy似乎熟悉它的就非常有限，这倒不奇怪，因为MapReduce是一个针对开发人员的ProgrammingModel，
               # 自然会有很多人去学习它，而Chubby更多的是一种为了实现MapReduce或者Bigtable而构建的内部的工具，对于开发人员来说基本上是透明的。
