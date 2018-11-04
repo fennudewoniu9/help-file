@@ -113,6 +113,37 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
     查看Eureka页面: http://localhost:10083/
     查看每个实例的详细信息: http://localhost:10083/eureka/apps
 
+    注册中心配置加密:
+      #https://www.jianshu.com/p/1dbd9a83880f
+
+      在微服务架构中，我们通常会采用DevOps的组织方式来降低因团队间沟通造成的巨大成本，以加速微服务应用的交付能力，这就使得原本运维团队控制的线上信息将交由微服务
+    所属组织的成员自行维护，其中将会包含大量的敏感信息，比如数据库的账户与密码等。显然，明文存储是非常危险的。针对这个问题。 spring cloud config提供了对属性加
+    密解密的功能，以保护配置文件中的信息安全，比如下面的列子：
+    # spring.datasource.username: root
+    # spring.datasource.password: {cipher}dsafdsfsdf3r423rewfsdfsdfasdfasdfsadfsadfsadfsa
+      在spring cloud config中通过属性值前使用{cipher}前缀来标注该内容是一个加密值，当微服务客户加载配置时，配置中心会自动为带有{cipher}前缀的值进行解密，通
+    过该机制的实现，运维团队就可以将线上信息的加密资源给微服务团队，而不担心这些敏感信息遭到泄漏了。
+      *使用前提: 在使用spring cloud config的加密解密功能时，为了启动该功能，需要在配置中心环境安装jce（Unlimited Strength Jurisdiction Policy）。虽然，
+      jce是jdk自带的，但是默认使用的是有长度限制的版本。在oracle的官方网站下载它，下载地址：
+      # https://www.oracle.com/technetwork/java/javase/downloads/jce8-download-2133166.html
+      下载之后是一个压缩包，里面有三个文件：
+      # local_policy.jar
+      # README.txt
+      # US_export_policy.jar
+      我们需要将local_policy.jar和US_export_policy.jar两个文件复制到$JAVA_HOME/jre/lib/security目录下。覆盖之前的默认内容。
+      *参考工程: springcloud-learn-config-cipher-server
+          - 在完成jce的安装后，可以尝试启动配置中心。在控制台中，将会输出一些配置中心特有的端点信息：
+            # /encrypt/status：查看加密功能状态的端点。
+            # /key： 查看密钥的端点。
+            # /encrypt: 对请求的body内容进行加密的端点。
+            # /decrypt：对请求body内容进行解密的端点
+          - 访问/encrypt/status端点，http://localhost:9090/encrypt/status，status:"NO_KEY"说明当前配置中心的加密功能还不能使用，因为还没配对应的密钥
+          - 可以通过encrypt.key属性在配置文件中直接指定密钥的信息（对称性密钥），比如：在application.yml中加入配置如下：encrypt.key=zhihao.miao
+            再访问断点，显示status:"OK"说明配置成功了。
+
+
+
+
 
 2: 服务消费、负载均衡（Ribbon『url方式』／Feign『serviceId方式』）
     Ribbon: Ribbon是一个基于HTTP和TCP客户端的负载均衡器。Feign中也使用Ribbon。
