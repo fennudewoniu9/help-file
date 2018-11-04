@@ -153,7 +153,7 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
     
     # http://tech.lede.com/2017/03/15/rd/server/SpringCloud1/
       - ServerList 
-      - ServerListFilter 
+      - ServerListFilter
       - IPing，探测服务实例是否存活的策略。 
       - IRule，负载均衡策略包括：轮询、随机、根据响应时间加权等，可以自己定义实现 
       - ILoadBalancer，负载均衡器。 
