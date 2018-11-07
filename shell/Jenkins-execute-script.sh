@@ -2,17 +2,17 @@ nohup java -jar bms.jar --spring.cloud.config.profile=local --spring.cloud.confi
 
 
 "----------------------------------------------------------------------------------------------------"
-curl -X GET --header 'Accept: application/json' 'http://localhost:8082/lilinlin/findById?a=11&b=23'
-curl -X GET --header 'Accept: application/json' 'http://localhost:8082/lilinlin/findById?a=11&b=23'
+curl -X GET --header 'Accept: application/json' 'http://localhost:8082/t9/findById?a=11&b=23'
+curl -X GET --header 'Accept: application/json' 'http://localhost:8082/t9/findById?a=11&b=23'
 
-if [ "200" != "$(curl -sLI -w "%{http_code}\\n" -o /dev/null http://localhost:8082/lilinlin/findById?a=11&b=23)" ]
+if [ "200" != "$(curl -sLI -w "%{http_code}\\n" -o /dev/null http://localhost:8082/t9/findById?a=11&b=23)" ]
 then
         echo "--------------------------------------------------"
         echo "Found exception when execute shell" 
         echo "--------------------------------------------------"
 fi
 "----------------------------------------------------------------------------------------------------"
-URL="http://localhost:8082/lilinlin/findById?a=11&b=23" 
+URL="http://localhost:8082/t9/findById?a=11&b=23"
 REAULT=$(curl -X GET -w %{http_code} --header 'Accept: application/json' $URL)
 if [ "200" != "$REAULT" ]
 then
