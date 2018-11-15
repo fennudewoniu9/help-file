@@ -16,6 +16,7 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
 2: 服务消费、负载均衡(Ribbon／Feign)
 3: 服务降级->断路器(熔断)->依赖隔离 (Hystrix:Feign已依赖)
 4: 分布式配置中心
+   - 非yml或者properties的方式配置
 5: 分布式配置中心（HA）
 6: 服务网关(Zuul)
 7: 注册中心（HA）
@@ -355,6 +356,20 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
         1、客户端／服务端都可以脱离euraka独立运行；
         2、两个都起起来后服务端挂掉后客户端也保存了所需要的值(客户端启动时验证是否可以取到${from}变量的值，可以判断客户端此时拿了文件的值)；
         3、服务端集群后默认的取git的master分支的内容。仓库内容修改后可以实时被更新到server端，可能是通过spring-boot-starter-actuator实现。
+
+
+    非yml或者properties的方式配置:
+      @Configuration
+      public class Config{
+          @Autowired
+          private String url;
+
+          @Bean
+          public javax.sql.DataSource datasource(){
+            returen org.springframework.boot.autoconfigure.jdbc.DataSourceBuilder.create().url(url).build();
+          }
+      }
+      具体参考: https://blog.csdn.net/mengda_lei/article/details/81484355
                 
 
 5: 分布式配置中心（HA）
