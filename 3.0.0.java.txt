@@ -12,6 +12,17 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
       其实ASM就是通过Visitor模式、职责链模式定义新的职责链，修改方法参数、待执行的方法，然后生成新的class文件或者原class文件的子类。
 
 
+1.范型:
+2.jvm: 
+  2.1.jvm - 算法: 
+  2.1.jvm - 垃圾收集器:
+  2.1.jvm - 大小设置:
+3.[Concurrent]Future:
+4.JUC:
+  4.1.ThreadLocal:
+5.排序:
+
+
 
 1.范型:
 	- 类型擦除：对应范型，编译运行时范型会变成其父类（编译后的class文件还是范型）；
@@ -236,15 +247,29 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
 
 2.1.jvm - 大小设置:
   控制参数：
-   * -Xms设置堆的最小空间大小。
-   * -Xmx设置堆的最大空间大小。
-   * -XX:NewSize设置新生代最小空间大小。
-   * -XX:MaxNewSize设置新生代最大空间大小。
-   * -XX:PermSize设置永久代最小空间大小。
-   * -XX:MaxPermSize设置永久代最大空间大小。
-   * -Xss设置每个线程的堆栈大小。
+   * -Xms: 设置堆的最小空间大小。
+   * -Xmx: 设置堆的最大空间大小。
+   * -Xss: 设置每个线程的堆栈大小。
+   * -XX:NewSize: 设置新生代最小空间大小。
+   * -XX:MaxNewSize: 设置新生代最大空间大小。
+   * -XX:PermSize: 设置永久代最小空间大小。
+   * -XX:MaxPermSize: 设置永久代最大空间大小。
   没有直接设置老年代的参数，但是可以设置堆空间大小和新生代空间大小两个参数来间接控制。
+  
+  -XX:+DisableExplicitGC : System.gc()会导致full gc 这个参数可以自动将System.gc()调用转换成一个空操作，防止应用歇性被暂停。
+  -XX:+CMSClassUnloadingEnabled : 垃圾回收会清理持久代，移除不再使用的classes。这个参数只有在 UseConcMarkSweepGC  也启用的情况下才有用，默认这个是设置为不启用的。
+  -XX:+UseConcMarkSweepGC : 启用CMS
+  -XX:+CMSParallelRemarkEnabled : 
+  -XX:+UseCMSCompactAtFullCollection : 在FULL GC的时候对年老代的压缩。CMS是不会移动内存的，因此非常容易产生碎片导致内存不够用，开启后内存的压缩这个时候就会被启用。增加这个参数是个好习惯。可能会影响性能,但是可以消除碎片
+  -XX:+LargePageSizeInBytes : 内存页的大小，不可设置过大，会影响Perm的大小，一般128M即可
+  -XX:+UseFastAccessorMethods : 
+  -XX:+UseCMSInitiatingOccupancyOnly : 使用手动定义初始化定义开始CMS收集
+  -XX:+CMSInitiatingOccupancyFraction : (Xmx-Xmn)*(100-CMSInitiatingOccupancyFraction)/100>=Xmn，使用cms作为垃圾回收时，内存使用70％后开始CMS收集
+  Xmx >= Xmn + Xmn/(1-CMSInitiatingOccupancyFraction/100)
+  如果-XX:CMSInitiatingOccupancyFraction=70，那么Xmx >= 1.3Xmn。
 
+  PS：windows会控制一个进程对内存控制的大小，32位的是2G
+  
 
 # http://www.importnew.com/17572.html
 3.[Concurrent]Future:
