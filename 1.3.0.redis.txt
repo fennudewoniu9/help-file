@@ -137,6 +137,20 @@ Redis 命令:
       # 由于性能问题，最好不要在master节点上做，而是在某一个slave上开启
       # http://redisbook.readthedocs.io/en/latest/internal/aof.html
 
+8: 命令:
+  expire: 如果对key使用set或del命令，那么也会移除expire time，尤其是set命令。 # https://blog.csdn.net/westsource/article/details/6640526
+  Incr: 将key中储存的数字值增一，如果key不存在，那么key的值会先被初始化为0，然后再执行INCR操作，且将key的有效时间设置为长期有效。
+  setnx: 将key的值设为value，当且仅当key不存在。若给定的key已经存在，则SETNX不做任何动作。设置成功，返回1。设置失败，返回0。可用来实现分布式锁。如下：
+          method(value -> 
+            long result = redisClient.setnx(key, value);
+            if(result == 1){
+                redisClient.expire(key, seconds);
+            } else if(redisClient.ttl(key)<0){
+                redisClient.expire(key, secondes);
+            }
+            return result == 1;
+          )
+  
 
 
 

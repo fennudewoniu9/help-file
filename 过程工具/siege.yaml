@@ -46,16 +46,34 @@ Failed transactions: 0 //失败处理次数
 Longest transaction: 3.12 //每次传输所花最长时间
 Shortest transaction: 0.00 //每次传输所花最短时间
 
-http://localhost:9006/inner/product/productBizSettleRatio?factoryId=121&merchantId=42&saleDate=2017-01-01
-http://localhost:9006/inner/product/scheduleBizStatusProcess
-http://localhost:9006/inner/product/bizSettleRatioPromotion?factoryId=1&merchantId=1&saleDate=2017-01-01
-#http://localhost:9006/inner/product/biz/cooperateMerchantListGet?enterpriseId=1&userType=1
-http://localhost:9006/product/biz/cooperateMerchantListGet?state=0&pageSize=10&pageIndex=1
-#http://localhost:9006/product/promotionItemsGet?productIds=11%2C11
-http://localhost:9006/product/promotionSettingGet?barCode=12&spuId=12
-http://localhost:9006/inner/product/detail?productId=123&userType=2
-http://localhost:9006/inner/product/update?productid=123
-http://localhost:9006/inner/product/productByMerchantId?merchantId=12&productId=23
+------------------------------------------------
+Transactions:          10000 hits
+Availability:         100.00 %
+Elapsed time:          39.88 secs
+Data transferred:        21.34 MB
+Response time:            0.11 secs
+Transaction rate:       250.75 trans/sec
+Throughput:           0.54 MB/sec
+Concurrency:           27.78
+Successful transactions:       10000
+Failed transactions:             0
+Longest transaction:          1.94
+Shortest transaction:         0.05
+ ------------------------------------------------
+Transactions:            9900 hits
+Availability:          99.00 %
+Elapsed time:         114.33 secs
+Data transferred:        15.19 MB
+Response time:            0.08 secs
+Transaction rate:        86.59 trans/sec
+Throughput:           0.13 MB/sec
+Concurrency:            7.31
+Successful transactions:        9900
+Failed transactions:           100
+Longest transaction:          1.26
+Shortest transaction:         0.05
+ ------------------------------------------------
+
 
 CPU 使用率、内存使用率、磁盘I/O, 网络带宽等，系统指标是指：并发用户数、在线用户数、平均响应时间和事务成功率等。: 
 系统吞吐量几个重要参数：QPS（TPS）、并发数、响应时间
@@ -72,3 +90,18 @@ QPS（TPS）= 并发数/平均响应时间 或者 并发数 = QPS*平均响应�
   QPS = 1000/(30*60) 事务/秒
   平均响应时间为 = 5*60  秒
   并发数= QPS*平均响应时间 = 1000/(30*60) *(5*60)=166.7
+
+
+
+
+
+本机安装命令:
+$ ./configure --prefix=/usr/local --with-ssl=/usr/bin/openssl
+$ make
+$ sudo make install
+
+问题:
+  [error] HTTPS requires libssl: Unable to reach jccaap.jr.jd.com with this protocol: Socket is already connected
+  [error] HTTPS requires libssl: Unable to reach jccaap.jr.jd.com with this protocol: Socket is already connected
+  解决方案:
+    brew link --force openssl
