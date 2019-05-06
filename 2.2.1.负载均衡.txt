@@ -31,9 +31,9 @@
       的本地访问，二是防止后端服务器的动态内存缓存的资源浪费。
 
   -------------------------------------------------------------------------------------------------------------------
-  LVS: Linux Virtual Server我们国家的章文嵩博士的一个开源项目。在linux内存2.6中，它已经成为内核的一部分，在此之前的内核版本则需要重
-       新编译内核。工作在网络层，可以实现高性能，高可用的服务器集群技术，其中NAT/TUN/DR分别修改第四、三、二层网络协议。从性能和稳定上还
-       是LVS最牛，基本达到了F5硬件设备的60%性能，其他几个10%都有点困难。不过就因为LVS忒牛了，配置也最麻烦了。
+  LVS（F5硬件设备的60%性能）: Linux Virtual Server我们国家的章文嵩博士的一个开源项目。在linux内存2.6中，它已经成为内核的一部分，在此
+       之前的内核版本则需要重新编译内核。工作在网络层，可以实现高性能，高可用的服务器集群技术，其中NAT/TUN/DR分别修改第四、三、二层网络
+       协议。从性能和稳定上还是LVS最牛，基本达到了F5硬件设备的60%性能，其他几个10%都有点困难。不过就因为LVS忒牛了，配置也最麻烦了。
   VIP: 外部直接面向用户请求，作为用户请求的目标的IP地址
   DIP/RIP: 如下
   DS: Director Server，指的是前端负载均衡器节点，对应的IP是DIP（主要用于和内部主机通讯的IP地址）
@@ -181,8 +181,18 @@
 
   4: HAProxy VS Nginx
      HAProxy实际上只是一个负载平衡器/反向代理。Nginx是一个Web服务器，也可以作为反向代理。If needed only for load balancing HA proxy 
-     is better. （比Nginx更灵活，还特攻限速功能）
+     is better. （比Nginx更灵活，还提供限速功能）
      # https://serverfault.com/questions/229945/what-are-the-differences-between-haproxy-and-ngnix-in-reverse-proxy-mode
+
+  4.1: LVS(Linux Virtual Server)
+  一句话总结: 性能好，不支持正则
+
+  4.2: Nginx
+  一句话总结: 热部署，作为中间层性能好，支持协议少(http／https／email)，健康监测不支持URL只能通过状态码
+
+  4.3: HAProxy
+  一句话总结: HAProxy实际上只是一个负载平衡器/反向代理。 Nginx是一个Web服务器，也可以作为反向代理。If needed only for load balancing HA proxy is better. 
+
 
 三. 现在网站发展的趋势对网络负载均衡的使用是随着网站规模的提升根据不同的阶段来使用不同的技术: 
   第一阶段: 利用Nginx或者HAProxy进行单点的负载均衡，这一阶段服务器规模刚脱离开单服务器、单数据库的模式，需要一定的负载均衡，但是

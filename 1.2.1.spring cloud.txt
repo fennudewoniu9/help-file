@@ -181,14 +181,16 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
 
         消费: RestTemplate restTemplate.getForEntity（）：指定服务
 
-    Feign: Feign是一个声明式的Web Service客户端，它使得编写Web Serivce客户端变得更加简单。能把HTTP远程调用对开发者完全透明，得到与调用本地方法一致的编码体验。
-           Spring Cloud为Feign增加了对Spring MVC注解的支持，还整合了Ribbon和Eureka来提供均衡负载的HTTP客户端实现。
-           @FeignClient用于通知Feign组件对该接口进行代理(不需要编写接口实现)，使用者可直接通过@Autowired注入。
-           Spring Cloud应用在启动时，Feign会扫描标有@FeignClient注解的接口，生成代理，并注册到Spring容器中。
-           Feign在默认情况下使用的是JDK原生的URLConnection发送HTTP请求，没有连接池，但是对每个地址会保持一个长连接，即利用HTTP的persistence connection。
-           Spring Cloud从Brixtion.SR5版本开始支持这种替换，首先在项目中声明Apache HTTP Client和feign-httpclient依赖：feign.httpclient.enabled=true
-           这一点与阿里Dubbo中暴露远程服务的方式类似，区别在于Dubbo是基于私有二进制协议，而Feign本质上还是个HTTP客户端。
-           # http://blog.spring-cloud.io/blog/sc-feign.html
+    Feign: 1.Feign是一个声明式的Web Service客户端，它使得编写Web Serivce客户端变得更加简单。能把HTTP远程调用对开发者完全透明，得到与调用本地方法一致的编码体验。
+           2.Spring Cloud为Feign增加了对Spring MVC注解的支持，还整合了Ribbon和Eureka来提供均衡负载的HTTP客户端实现。
+           3.@FeignClient用于通知Feign组件对该接口进行代理(不需要编写接口实现)，使用者可直接通过@Autowired注入。
+           4.Spring Cloud应用在启动时，Feign会扫描标有@FeignClient注解的接口，生成代理，并注册到Spring容器中。
+           5.Http方式：Feign在默认情况下使用的是JDK原生的URLConnection发送HTTP请求，没有连接池，但是对每个地址会保持一个长连接，即利用HTTP的persistence connection。
+             我们可以用Apache的HTTP Client替换Feign原始的http client, 从而获取连接池、超时时间等与性能息息相关的控制能力Spring Cloud从Brixtion.SR5版本开始
+             支持这种替换，配置修改：feign.httpclient.enabled=true，具体方式：
+             http://okeeper.leanote.com/post/%E4%BD%BF%E7%94%A8Spring-Cloud-Feign%E4%BD%9C%E4%B8%BAHTTP%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%B0%83%E7%94%A8%E8%BF%9C%E7%A8%8BHTTP%E6%9C%8D%E5%8A%A1
+           6.这一点与阿里Dubbo中暴露远程服务的方式类似，区别在于Dubbo是基于私有二进制协议，而Feign本质上还是个HTTP客户端。
+             # http://blog.spring-cloud.io/blog/sc-feign.html
         pom依赖: 
             #父工程、版本仲裁同注册中心一样
             <dependency>
@@ -503,6 +505,8 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
     * run：过滤器的具体逻辑。需要注意，这里我们通过ctx.setSendZuulResponse(false)令zuul过滤该请求，不对其进行路由，
            然后通过ctx.setResponseStatusCode(401)设置了其返回的错误码，当然我们也可以进一步优化我们的返回，
            比如，通过ctx.setResponseBody(body)对返回body内容进行编辑等。
+    * Http请求方式：默认的是HttpClient，但是可以替换成OkHttp，方式：https://blog.csdn.net/songhaifengshuaige/article/details/74188106，
+      https://blog.csdn.net/weixin_33962621/article/details/86860932
     
 7: 注册中心（HA）
     # http://tech.lede.com/2017/03/15/rd/server/SpringCloud1/
