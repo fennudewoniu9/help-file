@@ -1,0 +1,90 @@
+【ELK-ES-Hadoop】
+1.【ELK】
+ELK Stack 是开源日志处理平台解决方案，背后的商业公司是 Elastic(https://www.elastic.co/)。它由日志采集解析工具 Logstash、全文搜索引擎 Elasticsearch、分析可视化平台 Kibana 组成。目前 ELK 的用户有 Adobe、Microsoft、Facebook、Stackoverflow、Cisco等诸多知名厂商。
+ 
+2.【Logstash】
+Logstash 是一种功能强大的信息采集工具，类似于 Hadoop 生态圈里的 Flume。通常在其配置文件规定 Logstash 如何处理各种类型的事件流，一般包含 input、filter、output 三个部分。Logstash 为各个部分提供相应的插件，因而有 input、filter、output 三类插件完成各种处理和转换；另外 codec 类的插件可以放在 input 和 output 部分通过简单编码来简化处理过程。
+可以对接kafka，既可作为消费者（input），又可作为生产者（output）
+ 
+3.【Kibana】
+Kibana 是专门设计用来与 Elasticsearch 协作的，可以自定义多种表格、柱状图、饼状图、折线图对存储在 Elasticsearch 中的数据进行深入挖掘分析与可视化。
+
+4.【ElasticSearch】
+ElasticSearch和Solr都是基于Lucene的搜索引擎，不过ElasticSearch天生支持分布式，而Solr是4.0版本后的SolrCloud才是分布式版本，Solr的分布式支持需要ZooKeeper的支持，且时时索引速度慢。
+Elasticsearch使用了Apache Lucene，后者是Doug Cutting(Apache Hadoop之父)使用Java开发的全文检索工具库，其内部使用的是被称为倒排索引的数据结构，其设计是为全文检索结果的低延迟提供服务。文档是Elasticsearch的数据单位，对文档中的词项进行分词，并创建去重词项的有序列表，将词项与其在文档中出现的位置列表关联，便形成了倒排索引。
+一个Elasticsearch实例是一个节点，一组节点组成了集群。Elasticsearch集群中的节点可以配置为3种不同的角色：主节点、数据节点、客户端节点（如果我们将node.master属性和node.data属性都设置为false，那么该节点就是一个客户端节点，扮演一个负载均衡的角色，将到来的请求路由到集群中的各个节点）
+
+- 插件 
+  * elasticsearch-head是一个elasticsearch的集群管理工具
+    github地址：https://github.com/mobz/elasticsearch-head
+    ES-Head集成：   
+      - npm install     //npm需要6.0以上(未验证)
+      - 修改./config/elasticsearch.yaml，添加两个变量:                  
+         http.cors.enabled: true
+         http.cors.allow-origin: "*"
+  * elasticsearch-sql：使用SQL语法查询elasticsearch
+    github地址：https://github.com/NLPchina/elasticsearch-sql
+  * elasticsearch-bigdesk是elasticsearch的一个集群监控工具，可以通过它来查看ES集群的各种状态
+  * elasticsearch-servicewrapper插件是ElasticSearch的服务化插件，
+    github地址：https://github.com/elasticsearch/elasticsearch-servicewrapper
+    安装：将service目录拷贝到elasticsearch目录的bin目录下
+
+- 启动
+  es: ./bin/elasticsearch -d  //后台启动，默认是9200端口，地址：http://localhost:9200
+  head: npm run start  //默认是9100端口，地址：http://localhost:9100（集群健康值:绿色）
+- 集群
+  - 修改./config/elasticsearch.yaml，添加变量:     
+    master：                  
+      cluster.name: linlin            //集群名      
+      node.name: master            //节点名      
+      node.master: true              //是否参与master选举        
+      #node.data: true                //是否存储数据，本次试验不配置，缺省值是“true”，意味着默认情况下每个elasticsearch节点也将是一个数据节点      network.host: 127.0.0.1     
+    slave：                  
+      cluster.name: linlin                  
+      node.name: slave1/slave2                  
+      network.host: 127.0.0.1                  
+      http.port: 9201/9202                  
+      discovery.zen.ping.unicast.hosts: ["127.0.0.1"]
+  - 其他参数:  
+    master选举最少的节点数，这个一定要设置为整个集群节点个数的一半加1，即N/2+1，可以减少部分脑裂情况的发生，并且是客户端立马不可用
+    	#discovery.zen.minimum_master_nodes: 1
+    discovery ping的超时时间，拥塞网络，网络状态不佳的情况下设置高一点
+   	#discovery.zen.ping.timeout: 3s
+    ⚠️注：es集群要使用内网ip，否则会出现数据恢复缓慢的现象。
+              分布式系统整个集群节点个数N要为奇数个！！
+
+  - 如何避免ElasticSearch发生脑裂（brain split）:    网络故障或简单地因为其中一个节点变得没有响应而发生的
+    http://blog.trifork.com/2013/10/24/how-to-avoid-the-split-brain-problem-in-elasticsearch/
+
+  - 即使集群节点个数为奇数，也难以避免脑裂的发生:
+    https://github.com/elastic/elasticsearch/issues/2488
+
+  - 两个节点群集？
+对于双节点群集，minimum_master_nodes设置为2，从而限制裂脑问题的可能性，但失去高可用性。可以添加一个新节点，node.data参数设置为“false”。这意味着该节点永远不会保留任何碎片，但可以选为主（默认行为）。由于新节点是无数据节点，因此可以在更便宜的硬件上启动。现在你有三个节点的集群，可以安全地将minimum_master_nodes设置为2，避免了裂脑，仍然能够丢失一个节点而不丢失数据。
+
+- 概念
+  索引：相当于database，相同属性的文档集合           
+      结构化索引：mappings有值           
+      非结构化索引：mappings无值
+  类型：相当于table，索引可以定义一个或多个类型，文档必须属于一个类型
+  文档：相当于row，被索引的基本数据单位
+  Fields：相当于Column
+  分片：每个索引有多个分片（类似kafka中的Partition），每个分片是一个Luncene索引，分片自身就是一个搜索引擎  备份：副本分片
+- 创建索引
+  - API格式：http://<ip>:<port>/<索引>/<类型>/<文档>(http://local:9200/car/byd/_mappings)
+
+- Read
+  - 读操作包含2部分内容：
+    * 查询阶段
+    * 提取阶段
+
+  - 查询阶段
+    在这个阶段，协调节点会将查询请求路由到索引的全部分片(主分片或者其副本)上。每个分片独立执行查询，并为查询结果创建一个优先队列，以相关性得分排序(我们将在本系列的后续文章中讲到)。全部分片都将匹配文档的ID及其相关性得分返回给协调节点。协调节点创建一个优先队列并对结果进行全局排序。会有很多文档匹配结果，但是，默认情况下，每个分片只发送前10个结果给协调节点，协调节点为全部分片上的这些结果创建优先队列并返回前10个作为hit。
+  - 提取阶段
+    当协调节点在生成的全局有序的文档列表中，为全部结果排好序后，它将向包含原始文档的分片发起请求。全部分片填充文档信息并将其返回给协调节点。
+
+5.【ES-Hadoop】
+Hadoop 生态圈为大规模数据集的处理提供多种分析功能，但实时搜索一直是 Hadoop 的软肋。如今，Elasticsearch for Apache Hadoop（ES-Hadoop）弥补了这一缺陷，为用户整合了 Hadoop 的大数据分析能力以及 Elasticsearch 的实时搜索能力.
+应用 es-hadoop 整合 Hadoop Ecosystem 与 Elasticsearch 架构图（https://www.elastic.co/products/hadoop）
+
+
