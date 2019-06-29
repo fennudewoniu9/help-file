@@ -36,7 +36,7 @@ Elasticsearch使用了Apache Lucene，后者是Doug Cutting(Apache Hadoop之父)
   - 修改./config/elasticsearch.yaml，添加变量:     
     master：                  
       cluster.name: linlin            //集群名      
-      node.name: master            //节点名      
+      node.name: master              //节点名      
       node.master: true              //是否参与master选举        
       #node.data: true                //是否存储数据，本次试验不配置，缺省值是“true”，意味着默认情况下每个elasticsearch节点也将是一个数据节点      network.host: 127.0.0.1     
     slave：                  
