@@ -16,7 +16,7 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
 2.jvm: 
   2.1.jvm - 算法: 
   2.1.jvm - 垃圾收集器:
-  2.1.jvm - 大小设置:
+  2.1.jvm - 大小设置（GC设置）:
 3.[Concurrent]Future:
 4.JUC:
   4.1.ThreadLocal:
@@ -93,14 +93,17 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
   # 　　4、Oracle 可能会将HotSpot 与 JRockit 合二为一。
 
   - 堆: 
-    java堆是所有线程所共享的一块内存，在虚拟机启动时创建，几乎所有的对象实例都在这里创建，因此该区域经常发
-    生垃圾回收操作。
+    java堆是所有线程所共享的一块内存，在虚拟机启动时创建，几乎所有的对象实例都在这里创建，因此该区域经常发生垃圾回收操作。
+    堆被划分为新生代和老年代，新生代又被进一步划分为Eden和Survivor区，而Survivor由FromSpace和ToSpace组成。
     堆大小 = 新生代 + 老年代 (1:2)
     新生代 = Eden + 两个 Survivor(from和to 区域)
             Edem:from:to = 8:1:1
-    GC 分为两种: Minor GC、Full GC (或称为 Major GC)
+    GC 分为两种: Minor GC、Major GC/Full GC
               Minor GC - 新生代 - 复制算法（简单粗暴） #http://www.importnew.com/15311.html
               Full GC  - 老年代 - 标记-清除算法
+    Minor GC: 新生代GC，指发生在新生代的垃圾收集动作，所有的Minor GC都会触发全世界的暂停（stop-the-world），停止应用程序的线程，不过这个过程非常短暂。
+    Major GC/Full GC: 老年代GC，指发生在老年代的GC。
+    
     G1/CMS区别：参考下面的【2.1.jvm - 垃圾收集器】
     # 没有直接设置老年代的参数，但是可以设置堆空间大小和新生代空间大小两个参数来间接控制。
 
@@ -171,7 +174,7 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
   - 分代收集算法
     GC分代的基本假设：绝大部分对象的生命周期都非常短暂，存活时间短。把Java堆分为新生代和老年代，这样就可以根据各个年代的特点采用最适当的收集算法。
     新生代(存活率高): 复制算法
-    老年代(存活率低): 没有额外空间对它进行分配担保，就必须使用“标记-清理”或“标记-整理”算法来进行回收
+    老年代(存活率低): 没有额外空间对它进行分配担保，就必须使用“标记-清理”或“标记-整理”算法来进行回收，默认是并行收集器CMS（不会压缩内存空间）
 
 
 2.1.jvm - 垃圾收集器: #如果说收集算法是内存回收的方法论，垃圾收集器就是内存回收的具体实现
@@ -212,7 +215,7 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     算法: 新生代复制算法、老年代标记-清除，可以这样理解：老年代使用CMS收集器，新生代使用ParNew收集器
     参数控制：
       -XX:+UseConcMarkSweepGC 使用CMS收集器
-      -XX:+ UseCMSCompactAtFullCollection Full GC后，进行一次碎片整理；整理过程是独占的，会引起停顿时间变长
+      -XX:+ UseCMSCompactAtFullCollection 在FULL GC的时候对年老代的压缩。CMS是不会移动内存的，因此非常容易产生碎片导致内存不够用，开启后内存的压缩这个时候就会被启用。增加这个参数是个好习惯。可能会影响性能,但是可以消除碎片
       -XX:+CMSFullGCsBeforeCompaction 设置进行几次Full GC后，进行一次碎片整理
       -XX:ParallelCMSThreads 设定CMS的线程数量（一般情况约等于可用CPU数量）
 
@@ -246,30 +249,98 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
 
 
 2.1.jvm - 大小设置:
-  控制参数：
-   * -Xms: 设置堆的最小空间大小。
-   * -Xmx: 设置堆的最大空间大小。
-   * -Xss: 设置每个线程的堆栈大小。
-   * -XX:NewSize: 设置新生代最小空间大小。
-   * -XX:MaxNewSize: 设置新生代最大空间大小。
-   * -XX:PermSize: 设置永久代最小空间大小。
-   * -XX:MaxPermSize: 设置永久代最大空间大小。
-  没有直接设置老年代的参数，但是可以设置堆空间大小和新生代空间大小两个参数来间接控制。
-  
-  -XX:+DisableExplicitGC : System.gc()会导致full gc 这个参数可以自动将System.gc()调用转换成一个空操作，防止应用歇性被暂停。
-  -XX:+CMSClassUnloadingEnabled : 垃圾回收会清理持久代，移除不再使用的classes。这个参数只有在 UseConcMarkSweepGC  也启用的情况下才有用，默认这个是设置为不启用的。
-  -XX:+UseConcMarkSweepGC : 启用CMS
-  -XX:+CMSParallelRemarkEnabled : 
-  -XX:+UseCMSCompactAtFullCollection : 在FULL GC的时候对年老代的压缩。CMS是不会移动内存的，因此非常容易产生碎片导致内存不够用，开启后内存的压缩这个时候就会被启用。增加这个参数是个好习惯。可能会影响性能,但是可以消除碎片
-  -XX:+LargePageSizeInBytes : 内存页的大小，不可设置过大，会影响Perm的大小，一般128M即可
-  -XX:+UseFastAccessorMethods : 
-  -XX:+UseCMSInitiatingOccupancyOnly : 使用手动定义初始化定义开始CMS收集
-  -XX:+CMSInitiatingOccupancyFraction : (Xmx-Xmn)*(100-CMSInitiatingOccupancyFraction)/100>=Xmn，使用cms作为垃圾回收时，内存使用70％后开始CMS收集
-  Xmx >= Xmn + Xmn/(1-CMSInitiatingOccupancyFraction/100)
-  如果-XX:CMSInitiatingOccupancyFraction=70，那么Xmx >= 1.3Xmn。
+  &控制参数: #https://www.cnblogs.com/likehua/p/3369823.html总
+  1.堆设置
+     * -Xms: 设置堆的最小空间大小。
+     * -Xmx: 设置堆的最大空间大小。
+     * -Xmn: 设置年轻代大小。 # 一般 Xmx >= 1.3Xmn
+     * -Xss: 设置每个线程的堆栈大小。
+     * -XX:NewSize: 设置新生代最小空间大小。
+     * -XX:MaxNewSize: 设置新生代最大空间大小。
+     * -XX:PermSize: 设置永久代最小空间大小。
+     * -XX:MaxPermSize=n: 设置持久代最大空间大小。
+     * -XX:NewRatio=n: 设置年轻代和年老代的比值。如:为3，表示年轻代与年老代比值为1：3，年轻代占整个年轻代年老代和的1/4
+     * -XX:SurvivorRatio=n: 年轻代中Eden区与两个Survivor区的比值。注意Survivor区有两个。如：3，表示Eden：Survivor=3：2，一个Survivor区占整个年轻代的1/5
+    没有直接设置老年代的参数，但是可以设置堆空间大小和新生代空间大小两个参数来间接控制。
 
-  PS：windows会控制一个进程对内存控制的大小，32位的是2G
+  2.收集器设置
+     * -XX:+UseSerialGC: 设置串行收集器
+     * -XX:+UseParallelGC: 设置并行收集器
+     * -XX:+UseParalledlOldGC: 设置并行年老代收集器
+     * -XX:+UseConcMarkSweepGC: 设置并发收集器，启用CMS
+
+  3.并行收集器设置
+     * -XX:ParallelGCThreads=n: 设置并行收集器收集时使用的CPU数。并行收集线程数。
+     * -XX:MaxGCPauseMillis=n: 设置并行收集最大暂停时间
+     * -XX:GCTimeRatio=n: 设置垃圾回收时间占程序运行时间的百分比。公式为1/(1+n)
+
+  4.并发收集器设置
+     * -XX:+CMSIncrementalMode: 设置为增量模式。适用于单CPU情况。
+     * -XX:ParallelGCThreads=n: 设置并发收集器年轻代收集方式为并行收集时，使用的CPU数。并行收集线程数。
   
+      -XX:+DisableExplicitGC : System.gc()会导致full gc 这个参数可以自动将System.gc()调用转换成一个空操作，防止应用歇性被暂停。
+      -XX:+CMSClassUnloadingEnabled : 垃圾回收会清理持久代，移除不再使用的classes。这个参数只有在 UseConcMarkSweepGC  也启用的情况下才有用，默认这个是设置为不启用的。
+      -XX:+CMSParallelRemarkEnabled : 采用并行标记方式降低停顿
+      -XX:+UseCMSCompactAtFullCollection : 在FULL GC的时候对年老代的压缩。CMS是不会移动内存的，因此非常容易产生碎片导致内存不够用，开启后内存的压缩这个时候就会被启用。增加这个参数是个好习惯。可能会影响性能,但是可以消除碎片
+      -XX:+LargePageSizeInBytes : 内存页的大小，不可设置过大，会影响Perm的大小，一般128M即可
+      -XX:+UseFastAccessorMethods : 
+      -XX:+UseCMSInitiatingOccupancyOnly : 使用手动定义初始化定义开始CMS收集
+      -XX:+CMSInitiatingOccupancyFraction : (Xmx-Xmn)*(100-CMSInitiatingOccupancyFraction)/100>=Xmn，使用cms作为垃圾回收时，内存使用70％后开始CMS收集
+                                        #上述共识转换后：Xmx >= Xmn + Xmn/(1-CMSInitiatingOccupancyFraction/100)
+                                        #          即：如果-XX:CMSInitiatingOccupancyFraction=70，那么Xmx >= 1.3Xmn
+  PS: windows会控制一个进程对内存控制的大小，32位的是2G
+
+  &回收器选择:  #https://www.cnblogs.com/likehua/p/3369823.html
+    Iapply的配置JAVA_MEM_OPTS=
+    " -server -Xmx4g -Xms4g -Xmn600m -Xss256k -XX:+DisableExplicitGC -XX:+CMSClassUnloadingEnabled -XX:+UseConcMarkSweepGC 
+    -XX:+CMSParallelRemarkEnabled -XX:+UseCMSCompactAtFullCollection -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods 
+    -XX:+UseCMSInitiatingOccupancyOnly -XX:CMSInitiatingOccupancyFraction=70 "
+    1.吞吐量优先的并行收集器
+      典型配置:
+        * java -Xmx3800m -Xms3800m -Xmn2g -Xss128k -XX:+UseParallelGC -XX:ParallelGCThreads=20
+        -XX:+UseParallelGC: 选择垃圾收集器为并行收集器。此配置仅对年轻代有效。即上述配置下，年轻代使用并发收集，而年老代仍旧使用串行收集。
+        -XX:ParallelGCThreads=20: 配置并行收集器的线程数，即：同时多少个线程一起进行垃圾回收。此值最好配置与处理器数目相等。
+
+        * java -Xmx3550m -Xms3550m -Xmn2g -Xss128k -XX:+UseParallelGC -XX:ParallelGCThreads=20 -XX:+UseParallelOldGC
+        -XX:+UseParallelOldGC: 配置年老代垃圾收集方式为并行收集。JDK6.0支持对年老代并行收集。
+
+        * java -Xmx3550m -Xms3550m -Xmn2g -Xss128k -XX:+UseParallelGC  -XX:MaxGCPauseMillis=100
+        -XX:MaxGCPauseMillis=100: 设置每次年轻代垃圾回收的最长时间，如果无法满足此时间，JVM会自动调整年轻代大小，以满足此值。
+
+        * java -Xmx3550m -Xms3550m -Xmn2g -Xss128k -XX:+UseParallelGC  -XX:MaxGCPauseMillis=100 -XX:+UseAdaptiveSizePolicy
+        -XX:+UseAdaptiveSizePolicy: 设置此选项后，并行收集器会自动选择年轻代区大小和相应的Survivor区比例，以达到目标系统规定的最低相应时间或者收集频率等，此值建议使用并行收集器时，一直打开。
+
+    2.响应时间优先的并发收集器
+      典型配置: 
+        * java -Xmx3550m -Xms3550m -Xmn2g -Xss128k -XX:ParallelGCThreads=20 -XX:+UseConcMarkSweepGC -XX:+UseParNewGC
+        -XX:+UseConcMarkSweepGC: 设置年老代为并发收集。测试中配置这个以后，-XX:NewRatio=4的配置失效了，原因不明。所以，此时年轻代大小最好用-Xmn设置。
+        -XX:+UseParNewGC: 设置年轻代为并行收集。可与CMS收集同时使用。JDK5.0以上，JVM会根据系统配置自行设置，所以无需再设置此值。
+
+        * java -Xmx3550m -Xms3550m -Xmn2g -Xss128k -XX:+UseConcMarkSweepGC -XX:CMSFullGCsBeforeCompaction=5 -XX:+UseCMSCompactAtFullCollection
+        -XX:CMSFullGCsBeforeCompaction: 由于并发收集器不对内存空间进行压缩、整理，所以运行一段时间以后会产生“碎片”，使得运行效率降低。此值设置运行多少次GC以后对内存空间进行压缩、整理。
+        -XX:+UseCMSCompactAtFullCollection: 打开对年老代的压缩。可能会影响性能，但是可以消除碎片
+
+  &调优总结: #https://www.cnblogs.com/likehua/p/3369823.html
+    1.年轻代大小选择
+    响应时间优先的应用: 尽可能设大，直到接近系统的最低响应时间限制（根据实际情况选择）。在此种情况下，年轻代收集发生的频率也是最小的。同时，减少到达年老代的对象。
+    吞吐量优先的应用: 尽可能的设置大，可能到达Gbit的程度。因为对响应时间没有要求，垃圾收集可以并行进行，一般适合8CPU以上的应用。
+    
+    2.年老代大小选择
+    响应时间优先的应用: 年老代使用并发收集器(CMS是不会移动内存的)，所以其大小需要小心设置，一般要考虑并发会话率和会话持续时间等一些参数。如果堆设置小了，可以会造成内存
+    碎片、高回收频率以及应用暂停而使用传统的标记清除方式；如果堆大了，则需要较长的收集时间。最优化的方案，一般需要参考以下数据获得：
+      *并发垃圾收集信息
+      *持久代并发收集次数
+      *传统GC信息
+      *花在年轻代和年老代回收上的时间比例
+    减少年轻代和年老代花费的时间，一般会提高应用的效率
+    吞吐量优先的应用: 一般吞吐量优先的应用都有一个很大的年轻代和一个较小的年老代。原因是，这样可以尽可能回收掉大部分短期对象，减少中期的对象，而年老代尽存放长期存活对象。
+    
+    3.较小堆引起的碎片问题
+    因为年老代的并发收集器使用标记、清除算法，所以不会对堆进行压缩。当收集器回收时，他会把相邻的空间进行合并，这样可以分配给较大的对象。但是，当堆空间较小时，运行一段时
+    间以后，就会出现“碎片”，如果并发收集器找不到足够的空间，那么并发收集器将会停止(CMS是不会移动内存的)，然后使用传统的标记、清除方式进行回收。如果出现“碎片”，可能需
+    要进行如下配置：
+      *-XX:+UseCMSCompactAtFullCollection: 使用并发收集器时，开启对年老代的压缩。
+      *-XX:CMSFullGCsBeforeCompaction=0: 上面配置开启的情况下，这里设置多少次Full GC后，对年老代进行压缩
 
 # http://www.importnew.com/17572.html
 3.[Concurrent]Future:
@@ -506,19 +577,20 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
 
 5.jvm调优、排查命令:
   对于线上系统突然产生的运行缓慢问题，如果该问题导致线上系统不可用，那么首先需要做的就是，导出jstack和内存信息，然后重启系统，尽快保证系统的可用性。这种情况可能的原因主要有两种：
-  - 代码中某个位置读取数据量较大，导致系统内存耗尽，从而导致Full GC次数过多，系统缓慢；
-  - 代码中有比较耗CPU的操作，导致CPU过高，系统运行缓慢；
-排查步骤：
-  - 查询占用资源最高的进程：top 
-  - 查询占用资源最高的线程：top -H -p 125990
-  - 查看当前线程的堆栈信息：sudo jstack 进程id（在jsatck命令展示的结果中，线程id都转换成了十六进制形式（nid=0x1ec38），如果想和第二步的12590匹配需要转换一次）
-  - 用jstat命令监控GC情况：jstat -gcutil 9 1000 10
-  - 用jmap查看heap的情况：jmap -heap 125990
+    - 代码中某个位置读取数据量较大，导致系统内存耗尽，从而导致Full GC次数过多，系统缓慢；
+    - 代码中有比较耗CPU的操作，导致CPU过高，系统运行缓慢；
+  排查步骤:
+    - 1.查询占用资源最高的进程: top （查出来占用资源最大的进程125990）
+        查询改进程的线程情况: top -H -p 125990（可以不加H。H:要让top输出某个特定进程<pid>并检查该进程内运行的线程状况,p:指定进程号）
+    - 2.用jstack查看堆栈信息: sudo jstack 进程id（在jsatck命令展示的结果中，线程id都转换成了十六进制形式（nid=0x1ec38），如果想和第二步的12590匹配需要转换一次）
+    - 3.用jstat命令监控GC情况: jstat -gcutil/-gc 125990 1000 10：每一秒刷新一次，共刷新十次，gcutil是百分比，gc是明细（jstat -选项 VM的进程号即当前运行的java进程号 间隔时间 打印次数---jstat-gcutil<pid><period><times>命令监控当前系统的GC状况）
+    - 4.用jmap查看heap的情况: jmap -heap 125990
 
-  jsp: 查看系统内所有HotSpot虚拟机进程
-  jstat: 查看运行时状态（类装载、内存、垃圾收集等运行时数据）
-  jmap: 生成堆dump文件、查看堆的配置和其中各个区域的使用情况，一般用来看各区域的使用情况
+
+  jsp(Java Virtual Machine Process Status Tool): 查看系统内所有HotSpot虚拟机进程
   jstack: 查看虚拟机当前时刻的线程快照。主要目的是用来定位线程长时间停顿的原因，如死循环、线程间死锁、外部资源请求时间过长等。
+  jstat: 查看运行时状态（类装载、内存、垃圾收集等运行时数据）https://www.jianshu.com/p/07cdd23ee57c
+  jmap(Memory Map): 生成堆dump文件、查看堆的配置和其中各个区域的使用情况，一般用来看各区域的使用情况
   jinfo: 查看虚拟机运行时参数
 
 
