@@ -1,6 +1,6 @@
 http://blog.csdn.net/xw20084898/article/details/39438783/
 
-OSI 七层模型: 物理层、数据链路层、网络层、传输层、会话层、表示层、应用层
+1.OSI 七层模型: 物理层、数据链路层、网络层、传输层、会话层、表示层、应用层
   # 物理层：网卡，网线，集线器，中继器，调制解调器
   # 数据链路层（以太网协议）：网桥，交换机
   # 网络层（IP协议）：路由器
@@ -13,7 +13,7 @@ OSI 七层模型: 物理层、数据链路层、网络层、传输层、会话�
 
 
 
-四个概念层: TCP/IP协议被组织成四个概念层，其中有三层对应于ISO参考模型中的相应层。ICP/IP协议族并不包含物理层和数据链路层，因此它
+2.四个概念层: TCP/IP协议被组织成四个概念层，其中有三层对应于ISO参考模型中的相应层。ICP/IP协议族并不包含物理层和数据链路层，因此它
 不能独立完成整个计算机网络系统的功能，必须与许多其他的协议协同工作。TCP/IP分层模型的四个协议层分别完成以下的功能：
   第一层: 网络接口层
   　　包括用于协作IP数据在已有网络介质上传输的协议。实际上TCP/IP标准并不定义与ISO数据链路层和物理层相对应的功能。相反，它定义像地址
@@ -30,13 +30,92 @@ OSI 七层模型: 物理层、数据链路层、网络层、传输层、会话�
 
 
 
-五层模型: 物理层、数据链路层、网络层、传输层、应用层
+3.五层模型: 物理层、数据链路层、网络层、传输层、应用层
 
 
-网络链路排查:
+
+
+4.网络链路排查:
     使用dig命令来看下"baidu"的DNS设置：dig baidu.com
     - DNS智能解析实现地域就近访问
     - nslookup VS dig
       先敲一个nslookup，进去后再敲 server 10.222.10.10 ，然后再敲你需要解析的域名。
       dig @10.222.10.10 www.dl.com 就是指定10.222.10.10做dns解析。
+
+
+
+5.网络层TCP链接，三次握手四次挥手: #https://www.cnblogs.com/Jessy/p/3535612.html
+    *客户端TCP状态迁移：
+        CLOSED->SYN_SENT->ESTABLISHED->FIN_WAIT_1->FIN_WAIT_2->TIME_WAIT->CLOSED
+
+    *服务器TCP状态迁移：
+        CLOSED->LISTEN->SYN收到->ESTABLISHED->CLOSE_WAIT->LAST_ACK->CLOSED
+
+    *各个状态的意义如下:
+        一般比较关注：SYN_RECV、CLOSE_WAIT、TIME_WAIT
+        - (clinet/server) LISTEN: 侦听来自远方TCP端口的连接请求； 
+        - (clinet) SYN-SENT: client端发送连接请求后等待server端匹配； 
+        - (server) SYN-RECEIVED: server端收到SYN-SENT的请求、并发送一个连接请求给client端，然后后等待client端对连接请求的确认，即：服务端收到建立连接的SYN没
+                                 有收到ACK包的时候处在SYN_RECV状态。有两个相关系统配置：
+                                  1.net.ipv4.tcp_synack_retries ：INTEGER（默认值是5）
+                                  对于远端的连接请求SYN，内核会发送SYN ＋ ACK数据报，以确认收到上一个 SYN连接请求包。这是所谓的三次握手( threeway handshake)
+                                  机制的第二个步骤。这里决定内核在放弃连接之前所送出的 SYN+ACK 数目。不应该大于255，默认值是5，对应于180秒左右时间。通常我们不对
+                                  这个值进行修改，因为我们希望TCP连接不要因为偶尔的丢包而无法建立。
+
+                                  2.net.ipv4.tcp_syncookies
+                                  一般服务器都会设置net.ipv4.tcp_syncookies=1来防止SYN Flood攻击。假设一个用户向服务器发送了SYN报文后突然死机或掉线，那么服务
+                                  器在发出SYN+ACK应答报文后是无法收到客户端的ACK报文的（第三次握手无法完成），这种情况下服务器端一般会重试（再次发送SYN+ACK给客户
+                                  端）并等待一段时间后丢弃这个未完成的连接，这段时间的长度我们称为SYN Timeout，一般来说这个时间是分钟的数量级（大约为30秒-2分钟）。
+                                  这些处在SYNC_RECV的TCP连接称为半连接，并存储在内核的半连接队列中，在内核收到对端发送的ack包时会查找半连接队列，并将符合的
+                                  requst_sock信息存储到完成三次握手的连接的队列中，然后删除此半连接。大量SYNC_RECV的TCP连接会导致半连接队列溢出，这样后续的连接建
+                                  立请求会被内核直接丢弃，这就是SYN Flood攻击。
+                                  能够有效防范SYN Flood攻击的手段之一，就是SYN Cookie。SYN Cookie原理由D. J. Bernstain和 Eric Schenk发明。SYN Cookie是对TCP
+                                  服务器端的三次握手协议作一些修改，专门用来防范SYN Flood攻击的一种手段。它的原理是，在TCP服务器收到TCP SYN包并返回TCP SYN+ACK包
+                                  时，不分配一个专门的数据区，而是根据这个SYN包计算出一个cookie值。在收到TCP ACK包时，TCP服务器在根据那个cookie值检查这个TCP ACK
+                                  包的合法性。如果合法，再分配专门的数据区进行处理未来的TCP连接。
+                                  观测服务上SYN_RECV连接个数为：7314，对于一个高并发连接的通讯服务器，这个数字比较正常。
+        - (clinet/server) ESTABLISHED: 代表一个打开的连接，数据可以传送给用户（client或者server）； 
+        - (clinet) FIN-WAIT-1: 发送连接中断请求后，等待对端的确认；
+        - (server) CLOSE-WAIT: 接收到了中断的FIN请求，等待从自己（本地用户）发起第二次中断的FIN请求； 出现这种状况一般都是由于server端代码的问题，如果你的服务器上
+                               出现大量CLOSE_WAIT，应该要考虑检查代码。也有可能是服务端处理时间太长，导致大量的链接在client超时了，服务端还在运行。这个状态在server
+                               上的数量和client上处于 TIME-WAIT 和 FIN-WAIT-2 这两种状态的数量之和理论上应该一样。一种比较常见的就是高并发的情况下客户端判断超时
+                               了，主动断掉了 cleint -> server 的连接，但是服务端还在处理，所以没有断掉 server -> client 的连接，导致客户端处于TIME-WAIT，而
+                               服务端处于CLOSE-WAIT。
+        - (clinet) FIN-WAIT-2: 对端确认了中断请求，等待对端发起中断请求；（整个连接的第二次中断请求） 
+        -          CLOSING: 等待远程TCP对连接中断的确认； 
+        - (server) LAST-ACK: 整个TCP生命中第二次中断FIN请求发出后，等待对端的确认； 
+        - (clinet) TIME-WAIT: 接收到了第二次FIN的中断请求，等待足够的时间以确保远程TCP接收到连接中断请求的确认； 根据TCP协议定义的3次握手断开连接规定,发起socket
+                            主动关闭的一方 socket将进入TIME_WAIT状态。TIME_WAIT状态将持续2个MSL(Max Segment Lifetime),在Windows下默认为4分钟，即240秒。
+                            TIME_WAIT状态下的socket不能被回收使用. 具体现象是对于一个处理大量短连接的服务器,如果是由服务器主动关闭客户端的连接，将导致服务器端
+                            存在大量的处于TIME_WAIT状态的socket， 甚至比处于Established状态下的socket多的多,严重影响服务器的处理能力，甚至耗尽可用的socket，
+                            停止服务。
+                            # 为什么需要TIME_WAIT？为什么client在收到server端的FIN请求后不是直接进入CLOSED状态？
+                            TIME_WAIT是TCP协议用以保证被重新分配的socket不会受到之前残留的延迟重发报文影响的机制,是必要的逻辑保证。不直接进入CLOSED的原因：
+                            - 保证TCP协议的全双工连接能够可靠关闭
+                            - 保证这次连接的重复数据段从网络中消失
+                            先说第一点，如果Client直接CLOSED了，那么由于IP协议的不可靠性或者是其它网络原因，导致Server没有收到Client最后回复的ACK。那么Server
+                            就会在超时之后继续发送FIN，此时由于Client已经CLOSED了，就找不到与重发的FIN对应的连接，最后Server就会收到RST而不是ACK，Server就会以
+                            为是连接错误把问题报告给高层。这样的情况虽然不会造成数据丢失，但是却导致TCP协议不符合可靠连接的要求。所以，Client不是直接进入CLOSED，
+                            而是要保持TIME_WAIT，当再次收到FIN的时候，能够保证对方收到ACK，最后正确的关闭连接。
+                            再说第二点，如果Client直接CLOSED，然后又再向Server发起一个新连接，我们不能保证这个新连接与刚关闭的连接的端口号是不同的。也就是说有可
+                            能新连接和老连接的端口号是相同的。一般来说不会发生什么问题，但是还是有特殊情况出现：假设新连接和已经关闭的老连接端口号是一样的，如果前
+                            一次连接的某些数据仍然滞留在网络中，这些延迟数据在建立新连接之后才到达Server，由于新连接和老连接的端口号是一样的，又因为TCP协议判断不
+                            同连接的依据是socket pair，于是，TCP协议就认为那个延迟的数据是属于新连接的，这样就和真正的新连接的数据包发生混淆了。所以TCP连接还要
+                            在TIME_WAIT状态等待2倍MSL，这样可以保证本次连接的所有数据都从网络中消失。
+        - (clinet/server) CLOSED: 没有任何连接状态，收到了中断确认或者clinet超时了（2个MSL(Max Segment Lifetime),在Windows下默认为4分钟）；
+
+    *各个状态对应的时序图（主）:
+        ![image](img/tcp/Time.jpg)
+
+    *各个状态的流转图（次）:
+        ![image](img/tcp/stateChange.jpg)
+
+
+各种协议都是前人千锤百炼后得到的标准，规范。从细节中都能感受到精巧和严谨。每次深入都有同一个感觉，精妙。做个快乐的自己。
+
+
+
+
+
+
 
