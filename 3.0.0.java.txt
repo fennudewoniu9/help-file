@@ -584,13 +584,13 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
         查询改进程的线程情况: top -H -p 125990（可以不加H。H:要让top输出某个特定进程<pid>并检查该进程内运行的线程状况,p:指定进程号）
     - 2.用jstack查看堆栈信息: sudo jstack 进程id（在jsatck命令展示的结果中，线程id都转换成了十六进制形式（nid=0x1ec38），如果想和第二步的12590匹配需要转换一次）
     - 3.用jstat命令监控GC情况: jstat -gcutil/-gc 125990 1000 10：每一秒刷新一次，共刷新十次，gcutil是百分比，gc是明细（jstat -选项 VM的进程号即当前运行的java进程号 间隔时间 打印次数---jstat-gcutil<pid><period><times>命令监控当前系统的GC状况）
-    - 4.用jmap查看heap的情况: jmap -heap 125990
+    - 4.用jmap查看heap的情况: jmap -heap 125990  (-heap是dump堆内存；-dump是dump整个jvm内存，但是会比较大(2G左右)，具体视应用而定)
 
 
   jsp(Java Virtual Machine Process Status Tool): 查看系统内所有HotSpot虚拟机进程
   jstack: 查看虚拟机当前时刻的线程快照。主要目的是用来定位线程长时间停顿的原因，如死循环、线程间死锁、外部资源请求时间过长等。
   jstat: 查看运行时状态（类装载、内存、垃圾收集等运行时数据）https://www.jianshu.com/p/07cdd23ee57c
-  jmap(Memory Map): 生成堆dump文件、查看堆的配置和其中各个区域的使用情况，一般用来看各区域的使用情况
+  jmap(Memory Map): 生成堆dump文件、查看堆的配置和其中各个区域的使用情况，一般用来看各区域的使用情况，也可以dump整个jvm内存的情况，但是会比较大(2G左右)
   jinfo: 查看虚拟机运行时参数
 
 

@@ -81,8 +81,8 @@ http://blog.csdn.net/xw20084898/article/details/39438783/
                                上的数量和client上处于 TIME-WAIT 和 FIN-WAIT-2 这两种状态的数量之和理论上应该一样。一种比较常见的就是高并发的情况下客户端判断超时
                                了，主动断掉了 cleint -> server 的连接，但是服务端还在处理，所以没有断掉 server -> client 的连接，导致客户端处于TIME-WAIT，而
                                服务端处于CLOSE-WAIT。
-        - (clinet) FIN-WAIT-2: 对端确认了中断请求，等待对端发起中断请求；（整个连接的第二次中断请求） 
-        -          CLOSING: 等待远程TCP对连接中断的确认； 
+        - (clinet) FIN-WAIT-2: client确认了中断请求，等待server发起中断请求；（整个连接的第二次中断请求） 
+        - (clinet) CLOSING:    client确认中断请求之前，收到了server发起中断请求并返回server的中断请求确认；
         - (server) LAST-ACK: 整个TCP生命中第二次中断FIN请求发出后，等待对端的确认； 
         - (clinet) TIME-WAIT: 接收到了第二次FIN的中断请求，等待足够的时间以确保远程TCP接收到连接中断请求的确认； 根据TCP协议定义的3次握手断开连接规定,发起socket
                             主动关闭的一方 socket将进入TIME_WAIT状态。TIME_WAIT状态将持续2个MSL(Max Segment Lifetime),在Windows下默认为4分钟，即240秒。
