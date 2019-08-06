@@ -125,5 +125,18 @@
     硬盘 >> kernel buffer >> user buffer>> kernel socket buffer >>协议栈 #两次 buffer不同，第二个 buffer和 socket相关联
   # https://blog.csdn.net/zmj_88888888/article/details/9169227
 
+14: CPU负载和 CPU使用率
+  # https://www.cnblogs.com/muahao/p/6492665.html，https://scoutapm.com/blog/understanding-load-averages
+  CPU使用率: 顾名思义，cpu的使用情况。反应的是CPU繁忙的程度。
+  CPU负载: (获取到CPU资源的进程 + 等待CPU资源的进程) / CPU最大处理进程数。反应的是CPU等待、负荷情况。
+  两者间的关系: 可能高使用率高负载；也可能低使用率高负载，此时一般是IO的问题。
+  理想的值: 单核相当于单通道的桥，多核相当于多通道的桥。理想的是“核心数=最大负载”，但是考虑到进程间的切换等，所以应该略微低于核心。（通过cat /proc/cpuinfo查看核数），
+  通过【uptime】命令可以查看负载情况：
+  # [dev@YZ@-221-210-53 ~]$ uptime 
+  # 23:05 up 14 days，6：08,1 user，load average：0.65 0.42 0.36
+  以上load average是一分钟、五分钟、十五分钟平均负载的意思，我应该观察哪个平均值？一，五或十五分钟？如果只有1分钟的系统负荷大于1.0，其他两个时间段都小于1.0，表明只
+  是暂时现象问题不大。如果15分钟内平均系统负荷大于1.0（CPU核心数1），表明问题持续存在不是暂时现象。所以，你应该主要观察"15分钟系统负荷"，将它作为电脑正常运行的指标。
+
+
 
 
