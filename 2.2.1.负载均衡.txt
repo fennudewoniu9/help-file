@@ -1,8 +1,22 @@
+一. 六种负载均衡方式
+二. LVS
+三. LVS - Nginx - HAProxy - F5优缺点
+四. 现在网站发展的趋势对网络负载均衡的使用是随着网站规模的提升根据不同的阶段来使用不同的技术
+
 一. 六种负载均衡方式: 
   http重定向、DNS负载均衡、反向代理负载均衡、
   IP负载均衡(LVS-NAT)(4层:传输层)、直接路由(LVS-DR)(2层:数据链路层)、IP隧道(LVS-TUN)
   参考: https://my.oschina.net/u/3341316/blog/877206
        七层网络模型：物理层、数据链路层、网络层、传输层、会话层、表示层、应用层
+
+  0: 四层负载均衡与七层负载均衡
+    ![image](img/slb/4Load7Load.png)
+    根据上述模型，可以快速了解负载均衡的分层: 
+    - 二层负载均衡: 基于虚拟MAC与真实MAC的地址互联
+    - 三层负载均衡: 基于虚拟IP与真实IP的地址互联
+    - 四层负载均衡: 基于三层的IP加四层的PORT进行虚拟与真实互转，期间也记录四层的UDP和TCP信息
+    - 七层负载均衡: 基于六层的URL进行地址互转，分析URL得到对应的七层HTTP等信息
+
 
   1: http重定向
     请求的开销和处理实际请求的开销，前者相对于后者越小，那么重定向的意义就越大，例如下载。
@@ -30,10 +44,14 @@
     - 反向代理服务器可以让用户在一次会话周期内的所有请求始终转发到一台特定的后端服务器上（粘滞会话），这样的好处一是保持session
       的本地访问，二是防止后端服务器的动态内存缓存的资源浪费。
 
+
+二. LVS: 
   -------------------------------------------------------------------------------------------------------------------
   LVS（F5硬件设备的60%性能）: Linux Virtual Server我们国家的章文嵩博士的一个开源项目。在linux内存2.6中，它已经成为内核的一部分，在此
        之前的内核版本则需要重新编译内核。工作在网络层，可以实现高性能，高可用的服务器集群技术，其中NAT/TUN/DR分别修改第四、三、二层网络
        协议。从性能和稳定上还是LVS最牛，基本达到了F5硬件设备的60%性能，其他几个10%都有点困难。不过就因为LVS忒牛了，配置也最麻烦了。
+       LVS可以实现负载均衡，但是不能够进行健康检查，比如一个rs出现故障，LVS 仍然会把请求转发给故障的rs服务器，这样就会导致请求的无效性。
+       keepalive 软件可以进行健康检查，而且能同时实现 LVS 的高可用性，解决 LVS 单点故障的问题，其实 keepalive 就是为 LVS 而生的。
   VIP: 外部直接面向用户请求，作为用户请求的目标的IP地址
   DIP/RIP: 如下
   DS: Director Server，指的是前端负载均衡器节点，对应的IP是DIP（主要用于和内部主机通讯的IP地址）
@@ -43,7 +61,7 @@
   CIP ---> VIP --防火墙--> DIP ---> RIP
   -------------------------------------
   -------------------------------------------------------------------------------------------------------------------
-  4: LVS - NAT(Netowrk Address Translation): 第三层-网络层
+  1: LVS - NAT(Netowrk Address Translation): 第三层-网络层，上下游流量都经过网关
     # LVS调度算法、模型、模型原理：https://www.cnblogs.com/liwei0526vip/p/6370103.html（包含网络图）
     LVS充当网关的角色，所有的网络报文（请求／响应）的进出都要经过LVS。
     *客户端发起请求，数据包到达lvs
@@ -62,7 +80,7 @@
     # 但一旦请求的内容过大，不论是基于反向代理还是NAT，负载均衡的整体吞吐量都差距不大，这说明对于一睦开销较大的内容，使用简单的反向代理
     # 来搭建负载均衡系统是值考虑的。原因是NAT服务器的网络带宽，包括内部网络和外部网络。（交换机可以解决）
 
-  5: LVS - DR(直接路由):  第二层-数据链路层
+  2: LVS - DR(直接路由):  第二层-数据链路层，上游流量才经过网关
     lvs接收到，将网络帧的MAC地址修改为某一台Real Server的MAC，数据包就会被转发给相应的RS处理（数据包的源ip和目标ip都没有变，只是服务
     器的mac变了）而Real Server将响应直接返回给客户，免去了VS/TUN中的IP隧道开销。这种方式是三种负载调度机制中性能最高最好的，但是必须
     要求Director Server与Real Server都有一块网卡连在同一物理网段上（实际是VLAN）。
@@ -74,7 +92,7 @@
     # WAN出口宽带。
     总的来说，LVS-DR适合搭建可扩展的负载均衡系统，不论是Web、文件、视频服务器，都有出色的性能。
 
-  6: LVS - TUN(Virtual Server via IP Tunneling／IP隧道):  第三层-网络层
+  3: LVS - TUN(Virtual Server via IP Tunneling／IP隧道):  第三层-网络层，上游流量才经过网关
     和NAT基本一样，基于IP隧道的请求转发机制：将LVS收到的IP数据包封装在一个新的IP数据包中，Real server是直接返回数据给客户端，不需要经
     过Diretor server,这大大降低了Diretor server的压力。并且，与LVS-DR不同的是，实际服务器可以和调度器不在同一个WAN网段，LVS通过IP
     隧道技术来转发请求到实际服务器，所以实际服务器也必须拥有合法的IP地址。RIP、VIP、DIP全是公网地址。
@@ -105,13 +123,8 @@
     * lblcr 带复制的基于局部性最少链接（Locality-Based Least Connections with Replication）
 
 
-一点一. LVS结合keepalive:
-  LVS可以实现负载均衡，但是不能够进行健康检查，比如一个rs出现故障，LVS 仍然会把请求转发给故障的rs服务器，这样就会导致请求的无效性。
-  keepalive 软件可以进行健康检查，而且能同时实现 LVS 的高可用性，解决 LVS 单点故障的问题，其实 keepalive 就是为 LVS 而生的。
-
-
 # http://www.ha97.com/5646.html
-二. LVS - Nginx - HAProxy:
+三. LVS - Nginx - HAProxy - F5优缺点: （LVS 是直接在网络层做 LB 的。HAProxy 和 Nginx 是七层的）
   从性能和稳定上还是LVS最牛，基本达到了F5硬件设备的60%性能，其他几个10%都有点困难。不过就因为LVS忒牛了，配置也最麻烦了，而且健康检测
   需要另外配置Ldirector，其他HAPROXY和NGINX自己就用，而且配置超级简单。所以建议，如果网站访问量不是门户级别的用HAPROXY或者NGINX
   就OK了，到了门户级别在用LVS+Idirector
@@ -177,24 +190,39 @@
       2.不支持 SPDY 协议
       3.不支持 HTTP cache 功能。现在不少开源的 lb 项目，都或多或少具备 HTTP cache 功能。
       4.重载配置的功能需要重启进程，虽然也是 soft restart，但没有 Nginx 的 reaload 更为平滑和友好。
-      5.多进程模式支持不够好。
+      5.多进程模式支持不够好。 
 
-  4: HAProxy VS Nginx
+  4: F5
+     硬件负载均衡设备又叫负载均衡器（Load Balancer），通常作为独立硬件存在。一台负载均衡器的售价往往高达十几万甚至几十万，许多企业并不愿意为它买单。
+     LTM和GTM是F5推出的两类产品:
+     LTM:
+       - Local Traffic Management，本地流量管理 ，也就是通常所说的服务器负载均衡。
+       - LTM主要实现的是一对多NAT（Network Address Translation，网络地址转换）。
+       - 比如一个用户访问进来，由LTM负责具体分配到哪个服务器来处理。
+
+     GTM:
+       - Global Traffic Management，广域网流量管理，也称为全局负载均衡。
+       - GTM又称之为智能DNS，它可以：
+           支持LTM的功能；
+           对各域名对应的IP进行健康检查，解决DNS的缓存更新不及时问题；
+           根据来源ip所处的运营商、地理位置，优先给客户端返回离它地理位置近属于同一运营商的ip。
+
+  5: HAProxy VS Nginx
      HAProxy实际上只是一个负载平衡器/反向代理。Nginx是一个Web服务器，也可以作为反向代理。If needed only for load balancing HA proxy 
      is better. （比Nginx更灵活，还提供限速功能）
      # https://serverfault.com/questions/229945/what-are-the-differences-between-haproxy-and-ngnix-in-reverse-proxy-mode
 
-  4.1: LVS(Linux Virtual Server)
-  一句话总结: 性能好，不支持正则
+      4.1: LVS(Linux Virtual Server)
+      一句话总结: 性能好，不支持正则
 
-  4.2: Nginx
-  一句话总结: 热部署，作为中间层性能好，支持协议少(http／https／email)，健康监测不支持URL只能通过状态码
+      4.2: Nginx
+      一句话总结: 热部署，作为中间层性能好，支持协议少(http／https／email)，健康监测不支持URL只能通过状态码
 
-  4.3: HAProxy
-  一句话总结: HAProxy实际上只是一个负载平衡器/反向代理。 Nginx是一个Web服务器，也可以作为反向代理。If needed only for load balancing HA proxy is better. 
+      4.3: HAProxy
+      一句话总结: HAProxy实际上只是一个负载平衡器/反向代理。 Nginx是一个Web服务器，也可以作为反向代理。If needed only for load balancing HA proxy is better.
 
 
-三. 现在网站发展的趋势对网络负载均衡的使用是随着网站规模的提升根据不同的阶段来使用不同的技术: 
+四. 现在网站发展的趋势对网络负载均衡的使用是随着网站规模的提升根据不同的阶段来使用不同的技术: 
   第一阶段: 利用Nginx或者HAProxy进行单点的负载均衡，这一阶段服务器规模刚脱离开单服务器、单数据库的模式，需要一定的负载均衡，但是
     仍然规模较小没有专业的维护团队来进行维护，也没有需要进行大规模的网站部署。这样利用Nginx或者HAproxy就是第一选择，此时这些东西
     上手快， 配置容易，在七层之上利用HTTP协议就可以。这时是第一选择
