@@ -210,6 +210,8 @@
      HAProxy实际上只是一个负载平衡器/反向代理。Nginx是一个Web服务器，也可以作为反向代理。If needed only for load balancing HA proxy 
      is better. （比Nginx更灵活，还提供限速功能）
      # https://serverfault.com/questions/229945/what-are-the-differences-between-haproxy-and-ngnix-in-reverse-proxy-mode
+     HAProxy，LVS，Nginx都支持TLS SNI Support（多域名），
+     SNI：https://blog.csdn.net/makenothing/article/details/53292335（主机虚拟化，同一个ip支持多个证书）
 
       4.1: LVS(Linux Virtual Server)
       一句话总结: 性能好，不支持正则
