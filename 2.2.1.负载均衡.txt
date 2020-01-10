@@ -2,11 +2,17 @@
 二. LVS
 三. LVS - Nginx - HAProxy - F5优缺点
 四. 现在网站发展的趋势对网络负载均衡的使用是随着网站规模的提升根据不同的阶段来使用不同的技术
+五. SNI（主机虚拟化，同一个ip支持多个证书）
 
 一. 六种负载均衡方式: 
   http重定向、DNS负载均衡、反向代理负载均衡、IP负载均衡(LVS-NAT)(3层:网络层)、直接路由(LVS-DR)(2层:数据链路层)、IP隧道(LVS-TUN)
   参考: https://my.oschina.net/u/3341316/blog/877206
        七层网络模型：物理层、数据链路层、网络层、传输层、会话层、表示层、应用层
+
+  Nginx是万级别的，通常只用它来做七层负载，LVS来做四层负载，LVS是十万级别的，所以如果顶不住常见的也有这样的搭配：LVS后面挂多个Nginx。
+  缺点在于(和硬件负载均衡比)性能一般，流量很大的企业只用软件负载均衡顶不住，没防火墙或者防DDos攻击等安全性功能。F5、A10等硬件负载性能
+  强悍，支持百万以上的并发。DNS负载均衡是地理级别的（全国按地域就近访问，但是有缓存导致有延迟），硬件负载均衡对应的是集群级别的，软件负
+  载均衡对应的是机器级别的。
 
   0: 四层负载均衡与七层负载均衡
     ![image](img/slb/4Load7Load.png)
@@ -15,6 +21,12 @@
     - 三层负载均衡: 基于虚拟IP与真实IP的地址互联
     - 四层负载均衡: 基于三层的IP加四层的PORT进行虚拟与真实互转，期间也记录四层的UDP和TCP信息
     - 七层负载均衡: 基于六层的URL进行地址互转，分析URL得到对应的七层HTTP等信息
+
+    - 四层负载（四层交换）：即在OSI第4层工作，就是TCP层，此种Load Balance不理解应用协议（如HTTP/FTP/MySQL等等）。例子：LVS，F5。
+    - 七层负载（七层交换）：OSI的最高层，应用层。此时，该Load Balancer能理解应用协议，如HTTP协议URI或Cookie信息。例子： haproxy，MySQL Proxy，Nginx。
+    - 四层负载（四层交换）和七层负载（七层交换）：七层更灵活，同时安全如SYN Flood攻击（DoS攻击）四层会直接发给后端服务器，七层可以拦截。
+    - 四层和七层负载的区别（包括二层和三层）：https://www.cnblogs.com/zhaiyf/p/9051694.html
+    - LVS、Ng、HAProxy四层和七层负载的区别：https://www.jianshu.com/p/fa937b8e6712
 
 
   1: http重定向
@@ -235,6 +247,9 @@
   最终形成比较理想的状态为: F5/LVS<—>Nginx/Haproxy<—>Squid/Varnish<—>AppServer。
 
 
+五. SNI（主机虚拟化，同一个ip支持多个证书）:
+ https://blog.csdn.net/makenothing/article/details/53292335
+ Nginx,Haproxy,LVS都支持SNI
 
 
 
