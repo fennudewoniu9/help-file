@@ -593,6 +593,15 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
   jmap(Memory Map): 生成堆dump文件、查看堆的配置和其中各个区域的使用情况，一般用来看各区域的使用情况，也可以dump整个jvm内存的情况，但是会比较大(2G左右)
   jinfo: 查看虚拟机运行时参数
 
+  具体用法：（命令-进程ID）
+  jinfo-20914
+  jmap-20914
+  jmap-dump-20914 #文件会非常大
+  jmap-heap-20914
+  jstack-20914
+  jstat-gccapacity-20914
+  jstat-gcutil-20914
+
 
 
 

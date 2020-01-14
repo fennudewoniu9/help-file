@@ -1,0 +1,11 @@
+序列化：
+1.msgpack：序列化的时候，不写入字段名字，会按字段顺序写入值，你可以想象为一个数组
+2.hessian：序列化的时候，会写入字段名称，然后字段值，你可以想象为一个map。
+  msgpack和hessian的区别：
+    - hessian产生的数据包较大，msgpack产生的数据包较小。网络传输数据更小。
+    - 序列化中hessian的性能较差，（相当于每次map按名字取值）msgpack性能更佳，（相当于数组取值）
+    - 压测结果不同场景显示提高10% - 30%。（从数组取值比map高效）
+    - hessian的扩展性更好，上下兼容时，可以随意添加字段位置（相当于map可以随便赋值）
+    - msgpack的性能更佳，上下兼容时，需要保证字段顺序（包括枚举顺序）。 参见 JSF FAQ#22.JSF默认的Msgpack序列化，接口对象里增减字段如何处理？
+    - 其它一些差异：例如hessian对Map/List等集合支持就是全变成最普通的Hashmap或者ArrayList，一些指定的类型会丢失（例如LinkedHashMap-->HashMap），但是支持一些匿名的
+      Map/List等集合类；而msgpack会保留集合类的类型（例如LinkedHashMap），但是不支持一些匿名集合类（例如List.subList()，Map.keySet()，Collections.emptyList()，
