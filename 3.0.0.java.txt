@@ -107,6 +107,11 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     G1/CMS区别：参考下面的【2.1.jvm - 垃圾收集器】
     # 没有直接设置老年代的参数，但是可以设置堆空间大小和新生代空间大小两个参数来间接控制。
 
+    堆内存 VS 非堆内存: 在JVM中堆之外的内存称为非堆内存(Non-heap memory)。堆内存是留给开发人员使用的；非堆就是JVM留给 自己用的，所以方法区、JVM内部处理或优化所需的内
+    存(如JIT编译后的代码缓存)、每个类结构(如运行时常数池、字段和方法数据)以及方法和构造方法 的代码都在非堆内存中。
+    生产: non-heap最大300M，metaspace最大150M
+    生产: 堆4G，非堆300M，CMSOldGen3500M，CodeCache250M，CompressedClassSpace1200M，Metaspace150M，ParEdenSpace500M，ParSurvivorSpace60M。以上都是最大值。
+
   - 虚拟机栈:
     1. 虚拟机栈也就是我们平常所称的栈内存，它为java方法服务，每个方法在执行的时候都会创建一个栈帧，用于存储局部变量、对象引
         用、方法返回值，每一个方法从调用到执行完成，就对应着一个栈帧在虚拟机栈中入栈到出栈的过程。通过 -Xss控制大小，如果线
@@ -246,6 +251,21 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     * 方法区中类静态属性实体引用的对象。
     * 方法区中常量引用的对象。
     * 本地方法栈中JNI引用的对象。
+
+  - 各种GC意义:
+    Full GC: 收集整个堆，定义是相对明确的，包括young gen、old gen、perm gen（如果存在的话）等所有部分的模式；就是针对整个新生代、老生代、元空间（metaspace，java8
+            以上版本取代perm gen）的全局范围的GC。
+    Minor GC和Major GC是俗称: 在Hotspot JVM实现的Serial GC, Parallel GC, CMS, G1 GC中大致可以对应到某个Young GC和Old GC算法组合。
+    Young GC: 只收集young gen的GC。
+    Old GC: 只收集old gen的GC。只有CMS的concurrent collection是这个模式。
+    Mixed GC: 收集整个young gen以及部分old gen的GC。只有G1有这个模式。
+
+    young GC: 当young gen中的eden区分配满的时候触发。注意young GC中有部分存活对象会晋升到old gen，所以young GC后old gen的占用量通常会有所升高。
+    full GC: 当准备要触发一次young GC时，如果发现统计数据说之前young GC的平均晋升大小比目前old gen剩余的空间大，则不会触发young GC而是转为触发full GC（因为
+              HotSpot VM的GC里，除了CMS的concurrent collection之外，其它能收集old gen的GC都会同时收集整个GC堆，包括young gen，所以不需要事先触发一次单独的
+              young GC）；或者，如果有perm gen的话，要在perm gen分配空间但已经没有足够空间时，也要触发一次full GC；或者System.gc()、heap dump带GC，默认也是
+              触发full GC。
+    S0/S1/Eden区域是被YoungGC管理，https://www.cnblogs.com/yy3b2007com/p/10975870.html
 
 
 2.1.jvm - 大小设置:
