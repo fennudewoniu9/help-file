@@ -1,11 +1,22 @@
-序列化：
-1.msgpack：序列化的时候，不写入字段名字，会按字段顺序写入值，你可以想象为一个数组
-2.hessian：序列化的时候，会写入字段名称，然后字段值，你可以想象为一个map。
-  msgpack和hessian的区别：
+序列化: 
+1.msgpack: 序列化的时候，不写入字段名字，会按字段顺序写入值，你可以想象为一个数组
+2.hessian: 序列化的时候，会写入字段名称，然后字段值，你可以想象为一个map。
+  msgpack和hessian的区别: 
     - hessian产生的数据包较大，msgpack产生的数据包较小。网络传输数据更小。
     - 序列化中hessian的性能较差，（相当于每次map按名字取值）msgpack性能更佳，（相当于数组取值）
     - 压测结果不同场景显示提高10% - 30%。（从数组取值比map高效）
     - hessian的扩展性更好，上下兼容时，可以随意添加字段位置（相当于map可以随便赋值）
     - msgpack的性能更佳，上下兼容时，需要保证字段顺序（包括枚举顺序）。 参见 JSF FAQ#22.JSF默认的Msgpack序列化，接口对象里增减字段如何处理？
-    - 其它一些差异：例如hessian对Map/List等集合支持就是全变成最普通的Hashmap或者ArrayList，一些指定的类型会丢失（例如LinkedHashMap-->HashMap），但是支持一些匿名的
-      Map/List等集合类；而msgpack会保留集合类的类型（例如LinkedHashMap），但是不支持一些匿名集合类（例如List.subList()，Map.keySet()，Collections.emptyList()，
+    - 其它一些差异：例如hessian对Map/List等集合支持就是全变成最普通的Hashmap或者ArrayList，一些指定的类型会丢失（例如LinkedHashMap-->HashMap），但是支持一些匿名
+      的Map/List等集合类；≈而msgpack会保留集合类的类型（例如LinkedHashMap），但是不支持一些匿名集合类（例如List.subList()，Map.keySet()，Collections.emptyList()，
+      Guava的匿名集合类，数据库查询结果直接返回的list）
+3.java序列化: 无法跨语言，序列后的码流太大，序列化性能太低
+4.json:
+  - FST: fast-serialization 是重新实现的 Java 快速对象序列化的开发包，比fastjson还快。序列化速度更快（2-10倍）、体积更小，而且兼容 JDK 原生的序列化。
+  - Jackson: 所依赖的jar包较少，社区相对比较活跃，更新速度也比较快，对于复杂类型的json转换bean会出现问题，一些集合Map，List的转换出现问题；
+  - Gson: 无依赖，不需要例外额外的jar，能够直接跑在JDK上。完全可以将复杂类型的json到bean或bean到json的转换，是JSON解析的神器。Gson在功能上面无可挑剔，但是性能上面比
+    FastJson有所差距。
+  - Fastjson: 是Java语言编写无依赖，不需要例外额外的jar，能够直接跑在JDK上。在复杂类型的Bean转换Json上会出现一些问题，可能会出现引用的类型，导致Json转换出错，需要制定
+    引用。
+  在项目选型的时候可以使用Google的Gson和阿里巴巴的FastJson两种并行使用，如果只是功能要求，没有性能要求，可以使用google的Gson，如果有性能上面的要求可以使用Gson将bean转
+  换json确保数据的正确，使用FastJson将Json转换Bean。
