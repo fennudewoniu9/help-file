@@ -101,8 +101,24 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     GC 分为两种: Minor GC、Major GC/Full GC
               Minor GC - 新生代 - 复制算法（简单粗暴） #http://www.importnew.com/15311.html
               Full GC  - 老年代 - 标记-清除算法
-    Minor GC: 新生代GC，指发生在新生代的垃圾收集动作，所有的Minor GC都会触发全世界的暂停（stop-the-world），停止应用程序的线程，不过这个过程非常短暂。
-    Major GC/Full GC: 老年代GC，指发生在老年代的GC。
+    Minor GC: 新生代GC，指发生在新生代的垃圾收集动作，所有的Minor GC都会触发全世界的暂停（stop-the-world），停止应用程序的线程，不过这个过程非常短暂。当年轻代满时
+                就会触发Minor GC，这里的年轻代满指的是Eden代满，Survivor满不会引发GC。 
+    Major GC/Full GC: 老年代GC，指发生在老年代的GC。出现了 Major GC，经常会伴随至少一次的 Minor GC（但非绝对的，ParallelScavenge 收集器的收集策略里就有直接进
+                      行 Major GC 的策略选择过程） 。MajorGC 的速度一般会比 Minor GC 慢 10倍以上。以下几种情况会触发：调用System.gc时、老年代空间不足、方法区
+                      空间不足、通过Minor GC后进入老年代的平均大小大于老年代的可用内存。
+    Minor GC和Major GC是俗称: 在Hotspot JVM实现的Serial GC, Parallel GC, CMS, G1 GC中大致可以对应到某个Young GC和Old GC算法组合。
+    Young GC: 只收集young gen的GC。当young gen中的eden区分配满的时候触发。注意young GC中有部分存活对象会晋升到old gen，所以young GC后old gen的占用量通常会有所升高。
+    
+    Old GC: 只收集old gen的GC。只有CMS的concurrent collection是这个模式。
+
+    Full GC: 收集整个堆，定义是相对明确的，包括young gen、old gen、perm gen（如果存在的话）等所有部分的模式；就是针对整个新生代、老生代、元空间（metaspace，
+             java8以上版本取代perm gen）的全局范围的GC。当准备要触发一次young GC时，如果发现统计数据说之前young GC的平均晋升大小比目前old gen剩余的空间大，则
+             不会触发young GC而是转为触发full GC（因为HotSpot VM的GC里，除了CMS的concurrent collection之外，其它能收集old gen的GC都会同时收集整个GC堆，包
+             括young gen，所以不需要事先触发一次单独的young GC）；或者，如果有perm gen的话，要在perm gen分配空间但已经没有足够空间时，也要触发一次full GC；或
+             者System.gc()、heap dump带GC，默认也是触发full GC。
+    Mixed GC: 收集整个young gen以及部分old gen的GC。只有G1有这个模式。
+
+    S0/S1/Eden区域是被YoungGC管理，https://www.cnblogs.com/yy3b2007com/p/10975870.html
     
     G1/CMS区别：参考下面的【2.1.jvm - 垃圾收集器】
     # 没有直接设置老年代的参数，但是可以设置堆空间大小和新生代空间大小两个参数来间接控制。
