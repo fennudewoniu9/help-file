@@ -20,3 +20,5 @@
     引用。
   在项目选型的时候可以使用Google的Gson和阿里巴巴的FastJson两种并行使用，如果只是功能要求，没有性能要求，可以使用google的Gson，如果有性能上面的要求可以使用Gson将bean转
   换json确保数据的正确，使用FastJson将Json转换Bean。
+
+
