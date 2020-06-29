@@ -27,6 +27,7 @@
     - 四层负载（四层交换）和七层负载（七层交换）：七层更灵活，同时安全如SYN Flood攻击（DoS攻击）四层会直接发给后端服务器，七层可以拦截。
     - 四层和七层负载的区别（包括二层和三层）：https://www.cnblogs.com/zhaiyf/p/9051694.html
     - LVS、Ng、HAProxy四层和七层负载的区别：https://www.jianshu.com/p/fa937b8e6712
+    - 一般 VIP 和 RIP 之间通过NAT做的映射关系都是有健康监测的，通过TCP端口探测技术实现
 
 
   1: http重定向
