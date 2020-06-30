@@ -200,6 +200,14 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
 
 2.1.jvm - 垃圾收集器: #如果说收集算法是内存回收的方法论，垃圾收集器就是内存回收的具体实现
   # 图片：https://mp.weixin.qq.com/s/olNXcRAT3PTK-hV_ehtmtw
+
+  - 并行 VS 并发: #https://www.cnblogs.com/gossip/p/6100769.html
+    并行: 多个线程执行垃圾回收，适合于吞吐量的系统，回收时系统会停止运行，Parallel相关的垃圾回收器如：
+        -XX:+UseParallelGC（新生代使用并行回收收集器，老年代使用串行收集器）
+        -XX:+UseParallelOldGC（新生代，老年代都使用并行回收收集器）
+    并发: 系统线程和垃圾回收线程一起执行，系统不会暂停，适合于响应要求高的系统，回收时系统不会停止运行如：
+        -XX:+UseConcMarkSweepGC（设置年老代为并发收集，年轻代并行，适合于响应要求高的系统）
+
   - Serial收集器:
     串行收集器是最古老，最稳定以及效率高的收集器，会产生较长的停顿，只使用一个线程去回收，垃圾收集的过程中会Stop The World（服务暂停）
     算法: 新生代复制算法、老年代标记-压缩；新生代、老年代使用串行回收
@@ -209,7 +217,7 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     ParNew收集器: ParNew收集器其实就是Serial收集器的多线程版本，这些GC的线程依然是和用户线程是串行的。
      算法: 新生代复制算法、老年代标记-压缩；新生代并行，老年代串行
      参数控制: 
-       -XX:+UseParNewGC ParNew收集器
+       -XX:+UseParNewGC ParNew收集器打开方式（ParNew是CMS收集器的默认年轻代收集器，而使用CMS时吞吐量不高，通过这个发生的次数也可以判断降低吞吐量的时间）
        -XX:ParallelGCThreads 限制线程数量
     # 类似ParNew收集器，Parallel收集器更关注系统的吞吐量。可以通过参数来打开自适应调节策略，虚拟机会根据当前系统的运行情况收集性能监控信息，动态
     # 调整这些参数以提供最合适的停顿时间或最大的吞吐量；也可以通过参数控制GC的时间不大于多少毫秒或者比例。
@@ -319,11 +327,16 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
       -XX:+CMSParallelRemarkEnabled : 采用并行标记方式降低停顿
       -XX:+UseCMSCompactAtFullCollection : 在FULL GC的时候对年老代的压缩。CMS是不会移动内存的，因此非常容易产生碎片导致内存不够用，开启后内存的压缩这个时候就会被启用。增加这个参数是个好习惯。可能会影响性能,但是可以消除碎片
       -XX:+LargePageSizeInBytes : 内存页的大小，不可设置过大，会影响Perm的大小，一般128M即可
-      -XX:+UseFastAccessorMethods : 
+      -XX:+UseFastAccessorMethods : 原始类型的快速优化 
       -XX:+UseCMSInitiatingOccupancyOnly : 使用手动定义初始化定义开始CMS收集
       -XX:+CMSInitiatingOccupancyFraction : (Xmx-Xmn)*(100-CMSInitiatingOccupancyFraction)/100>=Xmn，使用cms作为垃圾回收时，内存使用70％后开始CMS收集
                                         #上述共识转换后：Xmx >= Xmn + Xmn/(1-CMSInitiatingOccupancyFraction/100)
                                         #          即：如果-XX:CMSInitiatingOccupancyFraction=70，那么Xmx >= 1.3Xmn
+      -XX:+UseAdaptiveSizePolicy: 设置此选项后，并行收集器会自动选择年轻代区大小和相应的Survivor区比例，以达到目标系统规定的最低相应时间或者收集频率等，此值建议使用
+                                  并行收集器时，一直打开。
+      -XX:+AggressiveOpts: 加快编译     
+      -XX:+UseBiasedLocking: 锁机制的性能改善
+
   PS: windows会控制一个进程对内存控制的大小，32位的是2G
 
   &回收器选择:  #https://www.cnblogs.com/likehua/p/3369823.html
@@ -331,6 +344,8 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     " -server -Xmx4g -Xms4g -Xmn600m -Xss256k -XX:+DisableExplicitGC -XX:+CMSClassUnloadingEnabled -XX:+UseConcMarkSweepGC 
     -XX:+CMSParallelRemarkEnabled -XX:+UseCMSCompactAtFullCollection -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods 
     -XX:+UseCMSInitiatingOccupancyOnly -XX:CMSInitiatingOccupancyFraction=70 "
+    建议Iapply配置：
+    “-server -Xmx4g -Xms4g -Xmn1g -Xss256k -XX:+DisableExplicitGC -XX:+UseParallelGC  -XX:MaxGCPauseMillis=100 -XX:+UseAdaptiveSizePolicy -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods”
     1.吞吐量优先的并行收集器
       典型配置:
         * java -Xmx3800m -Xms3800m -Xmn2g -Xss128k -XX:+UseParallelGC -XX:ParallelGCThreads=20
