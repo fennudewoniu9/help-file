@@ -344,8 +344,11 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     " -server -Xmx4g -Xms4g -Xmn600m -Xss256k -XX:+DisableExplicitGC -XX:+CMSClassUnloadingEnabled -XX:+UseConcMarkSweepGC 
     -XX:+CMSParallelRemarkEnabled -XX:+UseCMSCompactAtFullCollection -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods 
     -XX:+UseCMSInitiatingOccupancyOnly -XX:CMSInitiatingOccupancyFraction=70 "
+    " -server -Xmx8g -Xms8g -Xmn1g -Xss256k -XX:+DisableExplicitGC -XX:MetaspaceSize=512m -XX:MaxMetaspaceSize=512m -XX:+CMSClassUnloadingEnabled 
+    -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods 
+    -XX:+UseCMSInitiatingOccupancyOnly -XX:CMSInitiatingOccupancyFraction=70 "
     建议Iapply配置：
-    “-server -Xmx4g -Xms4g -Xmn1g -Xss256k -XX:+DisableExplicitGC -XX:+UseParallelGC  -XX:MaxGCPauseMillis=100 -XX:+UseAdaptiveSizePolicy -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods”
+    “ -server -Xmx4g -Xms4g -Xmn1g -Xss256k -XX:+DisableExplicitGC -XX:+UseParallelGC -XX:MaxGCPauseMillis=100 -XX:+UseAdaptiveSizePolicy -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods”
     1.吞吐量优先的并行收集器
       典型配置:
         * java -Xmx3800m -Xms3800m -Xmn2g -Xss128k -XX:+UseParallelGC -XX:ParallelGCThreads=20
