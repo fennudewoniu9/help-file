@@ -101,6 +101,10 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     Major GC/Full GC: 老年代GC，指发生在老年代的GC。出现了 Major GC，经常会伴随至少一次的 Minor GC（但非绝对的，ParallelScavenge 收集器的收集策略里就有直接进
                       行 Major GC 的策略选择过程） 。MajorGC 的速度一般会比 Minor GC 慢 10倍以上。以下几种情况会触发：调用System.gc时、老年代空间不足、方法区
                       空间不足、通过Minor GC后进入老年代的平均大小大于老年代的可用内存。
+                      在Java虚拟机规范中，将方法区作为堆的一个逻辑部分来对待，但事实上，方法区并不是堆（Non-Heap）；另外，不少人将Java GC的分代收集机制分为3个代：
+                      青年代，老年代，永久代，这些作者将方法区定义为“永久代”，这是因为，对于之前的HotSpot Java虚拟机的实现方式中，将分代收集的思想扩展到了方法区，
+                      并将方法区设计成了永久代。不过，除HotSpot之外的多数虚拟机，并不将方法区当做永久代，HotSpot本身，也计划取消永久代。一般在方法区很少进行垃圾回
+                      收，因此也被称为永久代，永久代是Major GC，fullGC是整个堆(但是堆又不包括方法区，矛盾点)
     Minor GC和Major GC是俗称: 在Hotspot JVM实现的Serial GC, Parallel GC, CMS, G1 GC中大致可以对应到某个Young GC和Old GC算法组合。
     Young GC: 只收集young gen的GC。当young gen中的eden区分配满的时候触发。注意young GC中有部分存活对象会晋升到old gen，所以young GC后old gen的占用量通常会有所升高。
     Old GC: 只收集old gen的GC。只有CMS的concurrent collection是这个模式。
