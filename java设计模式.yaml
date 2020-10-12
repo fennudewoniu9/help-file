@@ -19,6 +19,43 @@
   简单/静态工厂模式用switch，工厂方法模式生成一个对象(猫狗)，抽象工厂模式生成一组对象(公猫母猫)
   PS：https://mp.weixin.qq.com/s/oRwF6DgiT6t69tzmfUM74Q
 
+  工厂方法模式: 客户端不需要在负责对象的创建,明确了各个类的职责,后期维护容易,增强系统的扩展性；但需要额外的编写代码,增加了工作量
+   动物工厂、猫工厂、狗工厂 + 动物类、猫、狗，动物类有猫和狗实现动物类
+  简单/静态工厂模式: 就一个具体的工厂来创建对象，代码量少;当需求改变了,我就要改代码
+    public class AnimalFactory {
+       public static Dog createDog() {
+           return new Dog();
+       }
+
+       public static Cat createCat() {
+           return new Cat();
+       }
+
+
+       // 外界想要猫要狗，这里创建就好了
+       public static Animal createAnimal(String type) {
+           if ("dog".equals(type)) {
+               return new Dog();
+           } else if ("cat".equals(type)) {
+               return new Cat();
+           } else {
+               return null;
+           }
+       }
+    }
+
+    // 拿到狗
+    Animal A = AnimalFactory.createAnimal("dog");
+    A.eat();
+
+    // 拿到猫
+    Animal C = AnimalFactory.createAnimal("cat");
+    C.eat();
+  抽象工厂模式: 抽象工厂模式就比较复杂了，我们一般的应用都写不到。工厂方法模式的工厂是创建出一种产品，而抽象工厂是创建出一类产品。（难以扩展产品族）
+   动物工厂、公动物工厂（动物是方法返回类型，但new的是公母狗/猫动物类）、母动物工厂（动物是方法返回类型，但new的是公母狗/猫动物类）
+   动物类、狗/猫动物抽象类、公母狗/猫动物类
+  总结: 总的来说我们用简单工厂模式比较多，工厂方式模式的话代码量会比较大，抽象工厂模式的话需要业务比较大的情况下才会用到
+
 适配器模式:
   通过一个适配器Adapter把一个接口转化为另一个借口，一般使用类适配器，不使用对象适配器（没增加一个被适配的接口就要增加一个适配器）
   类适配器：extends适配的类，实现被适配的类，这样每增加一个被适配的类，直接增加一个implements和对应的方法即可。比如2项电转3、4项电

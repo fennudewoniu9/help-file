@@ -98,9 +98,10 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
               Full GC  - 老年代 - 标记-清除算法
     Minor GC: 新生代GC，指发生在新生代的垃圾收集动作，所有的Minor GC都会触发全世界的暂停（stop-the-world），停止应用程序的线程，不过这个过程非常短暂。当年轻代满时
                 就会触发Minor GC，这里的年轻代满指的是Eden代满，Survivor满不会引发GC。 
-    Major GC/Full GC: 老年代GC，指发生在老年代的GC。出现了 Major GC，经常会伴随至少一次的 Minor GC（但非绝对的，ParallelScavenge 收集器的收集策略里就有直接进
-                      行 Major GC 的策略选择过程） 。MajorGC 的速度一般会比 Minor GC 慢 10倍以上。以下几种情况会触发：调用System.gc时、老年代空间不足、方法区
-                      空间不足、通过Minor GC后进入老年代的平均大小大于老年代的可用内存。
+    Major GC/Full GC: Full GC是老年代GC，指发生在老年代的GC；MajorGC:指永久代的GC，一般是方法load大数据引起的。Minor GC:新生代GC，指发生在新生代的垃圾收集动作，
+                      所有的Minor GC都会触发全世界的暂停。出现了Major GC，经常会伴随至少一次的Minor GC（但非绝对的，ParallelScavenge 收集器的收集策略里就
+                      有直接进行 Major GC 的策略选择过程） 。MajorGC 的速度一般会比Minor GC慢10倍以上。以下几种情况会触发：调用System.gc时、老年代空间不足、方
+                      法区空间不足、通过Minor GC后进入老年代的平均大小大于老年代的可用内存。
                       在Java虚拟机规范中，将方法区作为堆的一个逻辑部分来对待，但事实上，方法区并不是堆（Non-Heap）；另外，不少人将Java GC的分代收集机制分为3个代：
                       青年代，老年代，永久代，这些作者将方法区定义为“永久代”，这是因为，对于之前的HotSpot Java虚拟机的实现方式中，将分代收集的思想扩展到了方法区，
                       并将方法区设计成了永久代。不过，除HotSpot之外的多数虚拟机，并不将方法区当做永久代，HotSpot本身，也计划取消永久代。一般在方法区很少进行垃圾回
@@ -386,6 +387,8 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     JAVA_MEM_OPTS=" -server -Xmx6g -Xms6g -Xmn1200m -Xss256k -XX:+DisableExplicitGC -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=256m 
     -XX:+UseParallelGC -XX:+UseParallelOldGC -XX:ParallelGCThreads=4 -XX:MaxGCPauseMillis=100 -XX:+UseAdaptiveSizePolicy 
     -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods"
+    PS：但Xmn和MaxGCPauseMillis矛盾，因为设置了每次年轻袋垃圾回收的最长时间，如果无法满足此时间JVM会自动调整年轻代大小以满足此值（这一点尚需研究）
+
     1.吞吐量优先的并行收集器
       典型配置:
         * java -Xmx3800m -Xms3800m -Xmn2g -Xss128k -XX:+UseParallelGC -XX:ParallelGCThreads=20
@@ -553,6 +556,17 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     * synchronized与lock: sync是控制不同线程之间访问权限不可重入，lock是控制包括自己在内的线程间访问权限可重入，且sync的粒度是包括this的对象（其
     实是对象监视器），比lock的粒度大（即同一个thread也不能重入）lock是通过AQS中的state（int）和以Thread为key来配合控制访问权限的。且sync一旦被某
     个线程获取，所有sync修饰的代码快、方法等都会阻塞，但非sync部分不会。
+    * reentrantlock 和 synchronized区别: jdk优化（借鉴了reentranlocak的cas）之后建议优先使用synchronnized，但一下三种情况例外：
+      - 多个条件作为getlock的条件
+      - 可中断等待避免阻塞
+      - 希望指定以公平或者非公平的方式获取锁
+    * synchronized: 
+    同步锁也叫对象锁，是锁在对象上的，不同的对象就是不同的锁。
+    该关键字是用于保证线程安全的，是阻塞式的解决方案。synchronized 也是可重入锁
+    让同一个时刻最多只有一个线程能持有对象锁，其他线程在想获取这个对象锁就会被阻塞，不用担心上下文切换的问题。
+    注意： 不要理解为一个线程加了锁 ，进入 synchronized代码块中就会一直执行下去。如果时间片切换了，也会执行其他线程，再切换回来会紧接着执行，只是不会执行到有竞争锁的资源，因为当前线程还未释放锁。
+    当一个线程执行完synchronized的代码块后 会唤醒正在等待的线程
+    synchronized实际上使用对象锁保证临界区的原子性 临界区的代码是不可分割的 不会因为线程切换所打断
 
     * Condition的await()、signal()与Object的await()、signal(): Object中的wait(),notify(),notifyAll()方法是和"同步锁"(synchronized)捆绑
     使用的；而Condition是需要与"互斥锁"/"共享锁"捆绑使用的。

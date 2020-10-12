@@ -125,6 +125,44 @@
   3. 每个consumer group关联一个临时的owner registry和一个持久的offset registry。对于被订阅的每个partition包含一个owner registry，
      内容为订阅这个partition的consumer id；同时包含一个offset registry，内容为上一次订阅的offset。
 
+■ KIP-500（key interface protocol）：Zookeeper-Free kafka: 社区开始了去zk化的准备
+  动机: #https://cwiki.apache.org/confluence/display/KAFKA/KIP-595%3A+A+Raft+Protocol+for+the+Metadata+Quorum
+    当前，Kafka使用ZooKeeper来存储有关分区和代理的元数据，并选择一个代理作为Kafka控制器。我们想删除对ZooKeeper的依赖。这将使我们能够以更可扩展和更强
+    大的方式管理元数据，从而支持更多分区。它还将简化Kafka的部署和配置。
+  和老的kaffka的区别: 
+    #https://cwiki.apache.org/confluence/display/KAFKA/KIP-500%3A+Replace+ZooKeeper+with+a+Self-Managed+Metadata+Quorum 
+    尽管本KIP仅讨论代理元数据管理，但客户端元数据管理对于可伸缩性也很重要。。。。和老的区别是元数据之间的同步使用pull的模式（指follower pull from leader
+    但如果broker落后太远，controller就发送一个全量的元数据给follower）
+  Zookeeper-free Kafka和原始Raft论文区别: #https://cwiki.apache.org/confluence/display/KAFKA/KIP-595%3A+A+Raft+Protocol+for+the+Metadata+Quorum
+  1：In the original Raft paper, the push model is used for replicating states, where leaders actively send requests to followers and count 
+  quorum from returned acknowledgements to decide if an entry is committed.In our implementation, we used a pull model for this purpose.
+  （原因：定为推送协议。领导者必须跟踪所有副本的状态，以便协调差异，并负责将更改推送到副本。另一方面，Kafka的复制协议是基于拉的。副本知道他们需要哪个偏移量，然后
+  从领导者那里获取。协调由副本驱动。这使得它适合大量观察者副本，因为领导者只需要跟踪仲裁中副本的状态。出于这个原因，我们选择在该协议中坚持使用基于拉的模型，因为它
+  可以更轻松地重用日志层。这也简化了主题分区到筏复制的过渡。）
+    好的一面：新加入的节点不需要leader从nextIndex递减重试发请求，leader只要简单的拒绝或者同意，自然的解决了分裂服务器的问题。
+    不好的一面：如果leader成为僵尸leader后不会自动退出（可以用一段时间内不提交消息自动退出解决但低tps的时候有问题）而push模型时，领导者在无法在跟随者超时内成功
+              发送心跳请求时可以下台。
+  2：获取下个offset：In the proposal here, we do not pipeline because the leader relies on getting the next offset from the Fetch request.
+
+  KIP-500中被拒绝的提案: 
+  使用现有的Raft库：日志复制是Kafka的核心，项目应拥有它。依赖第三方系统或库将挫败KIP-500的主要动机之一。根据Kafka的特定需求，没有简单的方法来开发第三方组件。例
+  如，我们最终可能会将此协议用于分区级复制，但是如果我们不能继续控制日志层，则兼容性将变得更加困难。因此，如果我们必须同时控制日志层和RPC协议，则第三方库的好处是微
+  不足道的，而成本则是对未来发展的不必要限制。此外，筏库通常 带来自己的RPC机制，序列化格式，拥有自己的监视，日志记录等。所有这些都需要用户理解的其他配置。
+  从使用Raft进行分区复制开始：如本文档中多个地方所述，我们赞成使Raft成为适用于单个分区的复制机制。这就引出了一个问题，我们是否应该只从那里开始，而不是为元数据仲裁
+  创建单独的协议？我们确实很想这样做，但最终决定不这样做，因为它增加了KIP-500路线图的大量正交开销。例如，由于控制器不再负责选举，因此我们将需要重新考虑元数据如何传
+  播到客户端。我们可以像今天当前所做的那样继续通过控制器路由所有内容，但这会削弱基于Raft的分区复制的主要动机之一。另外，我们需要一个Raft协议，该协议可以有效地批量选
+  举。这些问题很容易解决，但是解决它们会使我们远远超出了KIP-500的范围。话虽如此，我们希望使该协议在某些方面能够反映当前的复制协议，以使最终的转换更加容易。这就是我们
+  选择如下所述的基于拉式协议的原因之一。这也是我们决定重用现有日志压缩语义的原因。
+  Push vs Pull：将筏指定为推送协议。领导者必须跟踪所有副本的状态，以便协调差异，并负责将更改推送到副本。另一方面，Kafka的复制协议是基于拉的。副本知道他们需要哪个偏
+  移量，然后从领导者那里获取。协调由副本驱动。这使得它适合大量观察者副本，因为领导者只需要跟踪仲裁中副本的状态。出于这个原因，我们选择在该协议中坚持使用基于拉的模型，
+  因为它可以更轻松地重用日志层。这也简化了主题分区到筏复制的过渡。
+  支持原子任意仲裁更改：在Raft文献中，提出的另一种仲裁更改方法是一次性支持现有仲裁的任意数量的节点更改。这需要更大范围的代码逻辑更改，因为我们需要在集群内部维护两组节
+  点仲裁。这个想法是，在从旧仲裁迁移到新仲裁的过程中，此期间中的每个附加消息都必须路由到旧配置和新配置内部的所有现有节点，以及两个仲裁的多数票。这种方法的好处是，仲裁更
+  改在整个组中变得很重要，但是它带来了复杂的正常操作的成本，并且几乎没有实用价值，因为生产中的大多数操作不需要迁移一个以上的服务器。文献明确地不推荐这种方法，并且  示例
+  实现的确很难为正确性辩解。
+  基于观察者的提升基于 观察者的自我提升也有优点，因为我们已经做过基于拉的模型。它可能只是监视它与领导者之间的差距，并且当差距持续低于特定阈值以进行几轮获取时，我们可以称
+  呼此观察者准备加入该团队。处理BeginQuorumEpoch 领导者发送的请求时，可以将特殊逻辑嵌入观察者内部  。它将把请求放在延迟的队列中，只有在观察者认为自己为时，才回复领导
+  者成功  in-sync。但是，目前，我们希望集中有关仲裁的信息，而不是让其分散散布并增加交互的复杂性。从这个意义上讲，这种方法可能不是可取的。
 
 
 ■ 参考:

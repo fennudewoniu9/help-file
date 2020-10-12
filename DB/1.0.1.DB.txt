@@ -20,3 +20,6 @@ char and varchar cannot store Unicode characters.
 char and nchar are fixed-length which will reserve storage space for number of characters you specify even if you don't use up all that space.
 varchar and nvarchar are variable-length which will only use up spaces for the characters you store. It will not reserve storage like char or nchar.
 nchar and nvarchar will take up twice as much storage space, so it may be wise to use them only if you need Unicode support.
+
+5:深入了解MVCC（Mutli Version Concurreny Control,多版本并发控制）
+数据库并发控制：https://www.jianshu.com/p/032739e930c0

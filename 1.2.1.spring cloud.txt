@@ -26,11 +26,16 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
     补充: 日志监控-ELK，指标监控-prometheus、influxdb，传统监控用开源的zabbix比较多，但是zabbix配置比较复杂，在微服务情况下不太适用。
 11: 消息总线(Spring Cloud Bus)----TODO
 12: 指标监控(Spring Boot Admin)
+13: springboot集成websocket
+14: springboot本地缓存 - Caffeine
+15: springboot工程被封装成jar被另一个引用：https://www.jianshu.com/p/5cb57be5d0ea
 100: 参数设置
 101: 高可用微服务实践
 102: Eureka 2.0
 990: Eureka Server相互不同步数据
 
+
+springboot集成websocket：https://www.cnblogs.com/bianzy/p/5822426.html
 
 1: 注册中心、服务注册与发现（Eureka—Spring Cloud Netflix中的）
     Spring Cloud针对服务注册与发现，进行了一层抽象，并提供了三种实现：Eureka、Consul、Zookeeper。目前支持得最好的就是Eureka
@@ -763,6 +768,47 @@ https://eacdy.gitbooks.io/spring-cloud-book/content/2%20Spring%20Cloud/2.4.2%20H
   在Spring Boot Actuator的基础上提供简洁的可视化WEB UI，是用来管理 Spring Boot 应用程序的一个简单的界面。hystrix 对流量的监控状态的监控是单
   应用的，turbine用来查看整个系统的监控状态。在spring boot admin中集成了spring-boot-admin-server-ui-turbine 这个插件。
   Spring Boot Admin 2.0.1 at least requires Spring Boot 2.0.2
+
+13: springboot集成websocket
+  https://www.cnblogs.com/bianzy/p/5822426.html
+
+14: springboot本地缓存-Caffeine
+  Spring Boot Cache默认使用ConcurrentHashMap作为缓存的实现，只提供了最基础的功能，实际项目中往往需要更加专业的缓存实现。比如Caffeine，最新版变成了Caffeine
+  引入:
+  <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-cache</artifactId>
+  </dependency>
+
+  启动缓存:
+  @EnableCaching
+  @SpringBootApplication
+  public class BootCacheApplication {
+      public static void main(String[] args) {
+          SpringApplication.run(BootCacheApplication.class, args);
+      }
+  }
+
+  使用:
+  @Slf4j
+  @Service
+  public class PersonService {
+      @Resource
+      private PersonMapper personMapper;
+      @Cacheable("person")
+      public Person getOne(int id) {
+          log.info("load one person");
+          return personMapper.selectOne(id);
+      }
+
+      @CacheEvict(value = "person", key = "#person.id")
+      public void update(Person person) {
+          personMapper.updateById(person);
+      }
+  }
+  # @Cacheable是最主要的注解，它指定了被注解方法的返回值是可被缓存的
+  # @CacheEvict注解是@Cacheable注解的反向操作，它负责从给定的缓存中移除一个值
+
 
 
 100: 参数设置
