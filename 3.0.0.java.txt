@@ -351,6 +351,12 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
      * -XX:SurvivorRatio=n: 年轻代中Eden区与两个Survivor区的比值。注意Survivor区有两个。如：3，表示Eden：Survivor=3：2，一个Survivor区占整个年轻代的1/5
     没有直接设置老年代的参数，但是可以设置堆空间大小和新生代空间大小两个参数来间接控制。
 
+    年轻代: PS Eden Space和PS Survivor Space 对应配置参数:-Xmn256M -XX:MaxNewSize=256M -XX:SurvivorRatio=8(SurvivorRatio:eden/survivor)
+    老年代: PS Old Gen 其值是：Old = Heap - Young={Eden,from,to}对应配置参数包括:-Xms512m -Xmx1024m和年轻代的配置参数，from，to的值取决于SurvivorRatio这个参数的设置
+    持久代: PS Perm Gen 对应的配置参数:-XX:PermSize=256M -XX:MaxPermSize=512m
+    注: 在观察内存的使用情况时首先保证相关的线条不是持续增长的，需要有对应SO、S1区，Eden，old以及Perm和cache回收的动作出现，并且可以估计其回收的内存大小，如果回收始终没
+    有增长的多，特别是内存增长很多的情况，这时系统很可能存在内存泄露。这时我们可能需要通过其他的更详细的工具对系统的类及内存进行分析，如JMap等。其中PS Perm Gen被元空间取代了
+
   2.收集器设置
      * -XX:+UseSerialGC: 设置串行收集器
      * -XX:+UseParallelGC: 设置并行收集器
@@ -383,11 +389,23 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     " -server -Xmx4g -Xms4g -Xmn600m -Xss256k -XX:+DisableExplicitGC -XX:+CMSClassUnloadingEnabled -XX:+UseConcMarkSweepGC 
     -XX:+CMSParallelRemarkEnabled -XX:+UseCMSCompactAtFullCollection -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods 
     -XX:+UseCMSInitiatingOccupancyOnly -XX:CMSInitiatingOccupancyFraction=70 "
-    建议Iapply配置：
+
+    Activity的配置为：
     JAVA_MEM_OPTS=" -server -Xmx6g -Xms6g -Xmn1200m -Xss256k -XX:+DisableExplicitGC -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=256m 
     -XX:+UseParallelGC -XX:+UseParallelOldGC -XX:ParallelGCThreads=4 -XX:MaxGCPauseMillis=100 -XX:+UseAdaptiveSizePolicy 
     -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods"
-    PS：但Xmn和MaxGCPauseMillis矛盾，因为设置了每次年轻袋垃圾回收的最长时间，如果无法满足此时间JVM会自动调整年轻代大小以满足此值（这一点尚需研究）
+
+    Activity因为年老代大部分空间没有使用，年轻代经常打满，调整对应的配置为：
+    JAVA_MEM_OPTS=" -server -Xmx6g -Xms6g -XX:NewRatio=1 -Xss256k -XX:+DisableExplicitGC -XX:MetaspaceSize=256m -XX:MaxMetaspaceSize=256m 
+    -XX:+UseParallelGC -XX:+UseParallelOldGC -XX:ParallelGCThreads=4 -XX:MaxGCPauseMillis=10 -XX:+UseAdaptiveSizePolicy 
+    -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods" 调整后的jvm每十分钟PS Scavenge次数少了近一倍
+
+    PS：但Xmn和MaxGCPauseMillis矛盾(Xmn有优先度更高)，因为设置了每次年轻袋垃圾回收的最长时间，如果无法满足此时间JVM会自动调整年轻代大小以满足此值
+    （Stackoverflow：So the -XX:SurvivorRatio is ignored unless you use -XX:-UseAdaptiveSizePolicy.），XX:NewRatio（年老代/年轻代）的比例默认是2
+    （XX:SurvivorRatio=n Ratio of eden/survivor space size. The default value is 8.），但根据activity的监控（最近11小时59分钟共发生608次垃圾回收，平均1分钟
+    发生一次，每次耗时11毫秒。 最近10分钟发生了11次垃圾回收，耗时137毫秒。）看年轻代回收频率高，年老代利用率低（190m/4944m），且每次回收耗时没有超过100ms，不会触发年
+    轻、年老比例的重分配，应该调整NewRatio。
+
 
     1.吞吐量优先的并行收集器
       典型配置:
