@@ -21,5 +21,27 @@ char and nchar are fixed-length which will reserve storage space for number of c
 varchar and nvarchar are variable-length which will only use up spaces for the characters you store. It will not reserve storage like char or nchar.
 nchar and nvarchar will take up twice as much storage space, so it may be wise to use them only if you need Unicode support.
 
-5:深入了解MVCC（Mutli Version Concurreny Control,多版本并发控制）
+5: 深入了解MVCC（Mutli Version Concurreny Control,多版本并发控制）
 数据库并发控制：https://www.jianshu.com/p/032739e930c0
+
+
+6: 扩容评估
+[数据库架构]说明mysql的数据库的架构，主从架构（包含多主多从架构），说明一个1单元组占用2台服务器资源，主从备架构说明1个单元组占用3台服务器资源。分布式
+                数据库架构是针对分布式数据库，例如Hbase，ClickHouse等
+[TPS预估]业务稳定状态下, 全天峰值访问量(每秒事务语句数量)，注意：服务器资源数量是根据tps来计算的，认真计算tps和申请服务器资源的数量
+[QPS预估]业务稳定状态下, 全天峰值访问量(每秒查询语句数量)预计1年的空间使用量(G)：业务未来1年所需磁盘存储大小(包括所有主从备服务器占用的总空间)
+[扩容项目] :
+                近1自然年的空间使用量（G）:扩容项目说明最近1年的主从备总空间的使用量
+                当前空间使用百分比: 扩容项目当前空间使用的百分比。
+                预计1年的空间使用量（G）：扩容项目预计未来1年的主从备总空间的使用量
+                预计空间增量百分比（每年）: 预计每年空间增量率
+[物理机]默认物理机配置是标C服务器，128G内存，40核CPU，6T磁盘空间，SSD磁盘。预估可承载业务量为：mysql5.6 3000tps/10000qps, mysql5.7 8000tps/12000qps
+[虚拟机]默认虚拟机配置是标C五分之一，20G内存，8核CPU，1T磁盘空间，SSD磁盘。（存储空间与IO资源不做绝对限制，与服务器上其它实例共享）预估可承载业
+                务量为：800tps, 3000qps
+[业务量预估]核心业务指标全年的数量, 如交易量/订单量, 需统计未来1年的需求
+[业务量预估补充说明]对该指标的简单描述, 如业务为扩容需求, 请同时补充历史1~2年的实际业务指标
+数据库服务器数量特别说明 ：
+                 1) 最小配置为同机房1主1备。如业务需求异地机房灾备或读写分离，可按需求增加从库和备库数量;
+                 2) 注意申请数量需包含所有节点，如1主1从1备为3台服务器资源
+物理机数量计算公式=(评估的tps/8000)*数据库架构
+虚拟机数量计算公式=(评估的tps/800)*数据库架构

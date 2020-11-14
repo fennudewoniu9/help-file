@@ -1,5 +1,9 @@
- java不太欢迎继承，因为耦合度高，因为C++的前车之鉴，所以Java发明了接口，以契约的方式向你提供功能。（C++也可以做到这些，那就是定义没有成员变量
-的纯虚类，而且所有函数都是纯虚函数。可是这些都是要靠程序员自己把握，并没有把这些功能集成到类似Interface这样的语法里。）
+ java不太欢迎继承，因为耦合度高，因为C++的前车之鉴，所以Java发明了接口，以契约的方式向你提供功能。（C++也可以做到这些，那就是定义没有成员变量的纯虚类，而且所有函数都是
+纯虚函数。可是这些都是要靠程序员自己把握，并没有把这些功能集成到类似Interface这样的语法里。）
+
+java为什么要有匿名类：有的时候, 为实现一个功能或者实例化一个对象, 需要实现一个接口, 但是接口应用的地方很多, 可是每个地方的实现都不尽相同, 而且需要实例化的地方就只有那么
+一两处, 这个时候, 如果为了这些地方, 逐个声明一个类来实现接口的话, 就会浪费很多空间, 还得费时编译, 匿名内部类可以在需要的地方使用接口, 可以在使用的同时实现, 这样不但节省
+了空间, 还可以使代码更加明了，内部类的适用范围是“一次就好，我带你去往天涯海角”
 
 
 ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm30/index.html
@@ -11,7 +15,7 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
 
       其实ASM就是通过Visitor模式、职责链模式定义新的职责链，修改方法参数、待执行的方法，然后生成新的class文件或者原class文件的子类。
 
-
+0.类的家在机制:
 1.范型:
 2.jvm: 
   2.1.jvm - 算法: 
@@ -22,7 +26,9 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
   4.1.ThreadLocal:
 5.jvm调优、排查命令:
 
-
+0.类的家在机制: #https://www.jianshu.com/p/202f6abb229c
+  父类的静态代码块->子类的静态代码块->初始化父类的属性值/父类的普通代码块(自上而下的顺序排列)->父类的构造方法->初始化子类的属性值/子类的普通代码块(自上而下的顺序排列)->子类的构造方法。
+  静态代码块>初始化属性值>普通代码块>构造方法。基本这个逻辑，也就静态代码块特殊点。
 
 1.范型:
 	- 类型擦除：对应范型，编译运行时范型会变成其父类（编译后的class文件还是范型）；
@@ -343,7 +349,7 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
      * -Xmx: 设置堆的最大空间大小。 #between 1/2 and 3/4 of physical memory https://community.oracle.com/thread/970695
      * -Xmn: 设置年轻代大小。 # 一般 Xmx >= 1.3Xmn；此值对系统性能影响较大，Sun官方推荐配置为整个堆的3/8。 //TODO 具体待确定
      * -Xss: 设置每个线程的堆栈大小。
-     * -XX:NewSize: 设置新生代最小空间大小。
+     * -XX:NewSize: 设置新生代最小空间大小。 -Xmn参数是对-XX:NewSize-XX:MaxNewSize这两个参数的同时配置，也就是说如果通过-Xmn来配置新声代的内存大小，那么-XX:NewSize = -XX:MaxNewSize = -Xmn，虽然会很方便，但在JDK1.4后才有效。
      * -XX:MaxNewSize: 设置新生代最大空间大小。
      * -XX:PermSize: 设置永久代最小空间大小。
      * -XX:MaxPermSize=n: 设置持久代最大空间大小。
@@ -379,6 +385,13 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
      * -XX:+CMSInitiatingOccupancyFraction : (Xmx-Xmn)*(100-CMSInitiatingOccupancyFraction)/100>=Xmn，使用cms作为垃圾回收时，内存使用70％后开始CMS收集
                                         #上述共识转换后：Xmx >= Xmn + Xmn/(1-CMSInitiatingOccupancyFraction/100)即：如果-XX:CMSInitiatingOccupancyFraction=70，那么Xmx >= 1.3Xmn
      * -XX:+UseAdaptiveSizePolicy: 设置此选项后，并行收集器会自动选择年轻代区大小和相应的Survivor区比例，以达到目标系统规定的最低相应时间或者收集频率等，此值建议使用并行收集器时，一直打开。
+                                   在 JDK 1.8 中，如果使用 CMS，无论 UseAdaptiveSizePolicy 如何设置，都会将 UseAdaptiveSizePolicy 设置为 false。在使用cms算法下，如果开启参数UseAdaptiveSizePolicy，则每次minor gc后
+                                   会重新计算eden，from和to的大小，计算过程依据的是gc过程统计的一些数据，计算后的eden+from+to不会超过Xmx，同时from和to一般是不相等（初始化的时候from和to是相等的）。主要问题在于计算完后，如果
+                                   eden变大，ContiguousSpacePool里面的max_eden_size并没有被更新，还是最开始时候的值，这样导致jvm在通过call_special调用java.lang.management. MemoryUsage的构造函数的时候会产生exception，
+                                   产生exception的原因是eden的committed 大于 eden的max_size，导致返回java.lang.management. MemoryUsage对象失败，最终导致产生显示异常。 目前确认是jvm的bug，初步确认版本为1.6_u30以上，包
+                                   括1.7都存在该问题.jdk6.30以下版本还未确认（使用1.6_u25版本后，目前还没有复现问题）---1.6.30以上到1.7的全部版本已经确认有该问题，jdk8修复，其他版本待验证。
+
+
      * -XX:+AggressiveOpts: 加快编译     
      * -XX:+UseBiasedLocking: 锁机制的性能改善
 
@@ -400,7 +413,7 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     -XX:+UseParallelGC -XX:+UseParallelOldGC -XX:ParallelGCThreads=4 -XX:MaxGCPauseMillis=10 -XX:+UseAdaptiveSizePolicy 
     -XX:LargePageSizeInBytes=128m -XX:+UseFastAccessorMethods" 调整后的jvm每十分钟PS Scavenge次数少了近一倍
 
-    PS：但Xmn和MaxGCPauseMillis矛盾(Xmn有优先度更高)，因为设置了每次年轻袋垃圾回收的最长时间，如果无法满足此时间JVM会自动调整年轻代大小以满足此值
+    PS：当有具体大小定义时（-Xmn），那么-XX:NewRatio比例设置将失效！且-XX:SurvivorRatio默认为8，单独使用初始时生效，但是由于-XX:+UseAdaptiveSizePolicy默认开启，后期会自动调节Survivor区的大小，取消自适应即可使得-XX:SurvivorRatio生效！，因为设置了每次年轻袋垃圾回收的最长时间，如果无法满足此时间JVM会自动调整年轻代大小以满足此值
     （Stackoverflow：So the -XX:SurvivorRatio is ignored unless you use -XX:-UseAdaptiveSizePolicy.），XX:NewRatio（年老代/年轻代）的比例默认是2
     （XX:SurvivorRatio=n Ratio of eden/survivor space size. The default value is 8.），但根据activity的监控（最近11小时59分钟共发生608次垃圾回收，平均1分钟
     发生一次，每次耗时11毫秒。 最近10分钟发生了11次垃圾回收，耗时137毫秒。）看年轻代回收频率高，年老代利用率低（190m/4944m），且每次回收耗时没有超过100ms，不会触发年
@@ -698,7 +711,7 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     #     return setInitialValue();
     # }
 
-5.jvm调优、排查命令:
+5.jvm调优、排查命令: #命令行工具：jps、jstack、jmap、jhat、jstat、hprof：https://www.jianshu.com/p/f9facd4b85e0
   对于线上系统突然产生的运行缓慢问题，如果该问题导致线上系统不可用，那么首先需要做的就是，导出jstack和内存信息，然后重启系统，尽快保证系统的可用性。这种情况可能的原因主要有两种：
     - 代码中某个位置读取数据量较大，导致系统内存耗尽，从而导致Full GC次数过多，系统缓慢；
     - 代码中有比较耗CPU的操作，导致CPU过高，系统运行缓慢；
