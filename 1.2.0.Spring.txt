@@ -3,3 +3,42 @@ http://xianbin.iteye.com/blog/1684004
 
 Web application-Root application 
 Proxy-Transaction 
+
+2: spring transaction
+    ![images](./img/spring transtraction.png)
+
+3: double transaction
+    # @Autowired
+    # @Qualifier("transactionManagerBls")
+    # private PlatformTransactionManager transactionManagerBls;
+    # 
+    # 
+    #     public static TransactionStatus createTrans(PlatformTransactionManager transManager) {
+    #         TransactionDefinition transDef = new DefaultTransactionDefinition(TransactionDefinition.PROPAGATION_REQUIRED);
+    #         return transManager.getTransaction(transDef);
+    #     }
+    # 
+    #     public static void commitTrans(PlatformTransactionManager transManager, TransactionStatus status) {
+    #         transManager.commit(status);
+    #     }
+    # 
+    #     public static void rollbackTrans(PlatformTransactionManager transManager, TransactionStatus status) {
+    #         transManager.rollback(status);
+    #     }
+    # 
+    # 
+    # 
+    # org.springframework.transaction.TransactionStatus statusBls = createTrans(transactionManagerBls);
+    # org.springframework.transaction.TransactionStatus statusEbkb = createTrans(transactionManagerBls);
+    # 
+    # commitTrans(transactionManagerBls, statusBls);
+    # commitTrans(transactionManagerEbkb, statusEbkb);
+    # 
+    # rollbackTrans(transactionManagerBls, statusBls);
+    # rollbackTrans(transactionManagerEbkb, statusEbkb);
+    # 
+    # 
+    # 
+    # 
+    # //ÊÖ¶¯
+    # TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();# 
