@@ -7,7 +7,7 @@
 
 ------------------------------------------------------------------------------------------------------------
 0: 事务隔离级别
-1: SQL注入
+1: 轨迹存储三种方案对比
 2: 聚簇索引／为什么索引快
 3: 代码中#{}和${}的区别是什么
 4: char,nchar,varchar,nvarchar的区别是什么
@@ -52,9 +52,27 @@
     。Repeatable的隔离级别总是读取事务开始时的行数据。因此ReadCommitted会出现不可重复读，而Repeatable情况下不会。（事务开始后前后两个一样的查询sql
     之间另外一个事务提交了数据修改，Repeatable前后两次一样）
 
-1: SQL注入
-  措施：
-  数据格式校验、转义、利用mysql预编译机制校验
+1: 轨迹存储三种方案对比
+  方案            优势                                                      不足                              京东云支持情况
+  InfluxDb        专为时序数据设计，写入性能高，占用空间小                     缺乏空间插件                       仅为单节点
+  Hbase           列式存储，扩展性好，生态强大，相关工具插件很多               只支持rowkey做索引，数类型简单       功能，性能还不完善。
+  greenPlum       基于pg之上搭建分布式数据平台。可以利用pg的丰富工具插件        写入性能不高                        支持最为成熟
+
+
+  InfluxDB：https://zhuanlan.zhihu.com/p/80062750
+  InfluxDB是一个由InfluxData开发的开源时序型数据库，专注于海量时序数据的高性能读、高性能写、高效存储与实时分析等，在DB-Engines Ranking时序型数据库排行榜上排名第一，广泛应用于DevOps监控、IoT监控、实时分析等场景。
+  1.InfluxDB的写性能是OpenTSDB的5倍，存储效率是OpenTSDB的16.5倍，查询效率是OpenTSDB的3.65倍。
+  2.InfluxDB的写性能是Cassandra的4.5倍，存储效率是Cassandra的2.1倍，查询效率是Cassandra的45倍。
+  3.InfluxDB的写性能是MongoDB的2.4倍，存储效率是MongoDB的20倍，查询效率是MongoDB的5.7倍。
+
+
+  Greenplum介绍（MPP数据库-海量数据并行处理DB）：https://www.jianshu.com/p/b2c286f9b128，https://zhuanlan.zhihu.com/p/127104595
+  1.是业界最快最高性价比的关系型分布式数据库,它在开源的PostgreSQL的基础上采用MPP架构（Massive Parallel Processing，海量并行处理）,具有强大的大规模数据分析任务处理能力。
+  2.常用的MPP数据库有哪些？GreenPlum/Vertica/Sybase IQ/TD Aster Data一般来说，我们都会更倾向于GreenPlum，而且阿里的云数据库HybirdDB也是基于GreenPlum的开源项目。
+  3.Greenplum（集群由master、slave、interconnected三种节点组成）架构中的master和salve类似Hadoop中的master和slave，master存储元数据和client请求的分发
+
+  PostgreSQL：简称pgSQL，是一种特性非常齐全的自由软件的对象-关系型数据库管理系统（ORDBMS），是以加州大学计算机系开发的POSTGRES，4.2版本为基础的对象关系型数据库管理系统。POSTGRES的许多领先概念只是在比较迟的时候才出现在商业网站数据库中。
+  PostgreSQL 与MySQL相比，优势何在？https://www.zhihu.com/question/20010554，重要的一点：PG 多年来在 GIS 领域处于优势地位
 
 2: 聚簇索引／为什么索引快
   聚簇索引是对磁盘上实际数据重新组织以按指定的一个或多个列的值排序的算法。特点是存储数据的顺序和索引顺序一致。一般情况下主键会默认创建聚簇索引，且
