@@ -4,6 +4,7 @@
 4.网络链路排查（dig，nslookup）
 5.网络层TCP链接，三次握手四次挥手
 6.TCP/IP 协议里常见的几种数据传输方式
+7.IPv6的好处
 
 http://blog.csdn.net/xw20084898/article/details/39438783/
 1.OSI 七层模型: 物理层、数据链路层、网络层、传输层、会话层、表示层、应用层
@@ -125,6 +126,9 @@ http://blog.csdn.net/xw20084898/article/details/39438783/
   # 浅析AnyCast网络技术：https://www.cnblogs.com/zafu/p/9168617.html
   # 浅析 AnyCast 技术：https://juejin.im/entry/5b4c0c16f265da0f9d19f419
 
+7.IPv6的好处:
+  https://www.zhihu.com/question/24719173：IPV6好处，更大的地址空间、更快的传输速度（简短的报头、简短的路由路径）、更安全（4的很多没有开其SSL，在网络层认证与加密
+  数据并对 IP 报文进行校验）
 
 
 

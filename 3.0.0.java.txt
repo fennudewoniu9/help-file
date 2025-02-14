@@ -276,11 +276,20 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
         指定在一个长度为N毫秒的时间片段内，消耗在垃圾收集上的时间不得超过N毫秒，这几乎已经是实时Java（RTSJ）的垃圾收集器的特征了。
       3.分代收集，虽然G1可以不需要其他收集器配合就能独立管理整个GC堆，但是还是保留了分代的概念。
 
+  - ZGC:
+    为什么ZGC适用于超大的内存（文章最后-虽然停顿只有10ms但是整个GC周期10min期间的浮动垃圾导致需要下个gc周期回收，浮动垃圾问题通过转表解决）：
+    https://zhuanlan.zhihu.com/p/105921339
+
    - 为什么G1可以实现可预测停顿:
     1.可以有计划地避免在Java堆的进行全区域的垃圾收集；
     2.G1收集器将内存分大小相等的独立区域（Region），新生代和老年代概念保留，但是已经不再物理隔离。
     3.G1跟踪各个Region获得其收集价值大小，在后台维护一个优先列表；
     4.每次根据允许的收集时间，优先回收价值最大的Region（名称Garbage-First的由来）；
+
+   - 垃圾回收器与CPU的关系:
+    1.https://xie.infoq.cn/article/586f901cf8f38dd2f63b54a44，CMS：CPU敏感(回收线程=(cpu核数+3)/4)&浮动碎片，G1：停顿时间可预测的收集模型，多个大小相等的区域，近
+    似实时回收的区域(不是全部区域)回收器，ZGC：停顿时间不会超过 10ms，停顿时间不会随着堆的增大而增大，支持堆的大小范围很广（8MB-16TB），每次进行 GC 时，都会对 page 进行压
+    缩操作，所以没有碎片问题；ZGC 只在特定情况下具有绝对的优势, 如巨大的堆和极低的暂停需求
 
    - 应用场景:
       面向服务端应用，针对具有大内存、多处理器的机器；
@@ -322,6 +331,14 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
 
   - 总结:
     新生代GC策略 和 老年老代GC策略 一般都是不同收集器组合使用，而G1收集器是同时作用于新老年代，不于其他收集器混用。
+    jvm提供的年轻代回收算法属于复制算法，CMS、G1，ZGC属于标记清除算法。CMS以获取最短回收停顿时间为目标的收集器，基于并发“标记清理”实现。JDK1.7之前的默认垃圾回收算
+    法，并发收集，停顿小。缺点是产生大量内存碎片，将会给大对象空间的分配带来很大的麻烦，往往会出现老年代还有很大的空间但无法找到足够大的连续空间来分配当前对象，不得不
+    提前触发一次FullGC。Garbage First，是一款面向服务端应用的垃圾收集器。G1算法JDK1.9之后默认回收算法，特点是保持高回收率的同时，可预测的停顿，适合8/16G以上的内
+    存使用。看上去跟CMS收集器的运作过程有几分相似，不过确实也这样。 Z Garbage Collector 垃圾收回器，也被称为 ZGC, 是一种可伸缩的低延迟垃圾收集器。Java 11包含一
+    个全新的垃圾收集器--ZGC，它由Oracle开发。垃圾回收停顿时间不超过10ms，无论是相对小的堆(几百MB)还是大堆(TB级)都能应对自如，与G1相比，吞吐量下降不超过15%。ZGC的
+    一个核心设计就是读屏障与彩色指针，这是ZGC可以与用户线程并发执行的原因。zgc的region核心亮点就是：动态。和G1类似，但ZGC的region的大小更加灵活和动态。zgc的region
+    不会像G1那样在一开始就被划分为固定大小的region。动态表现为：动态地创建和销毁；动态地决定region的大小。它的最小单位是2MB的一个块。然后每个region的大小就是是
+    2MB*N就是。
 
   - 在Java语言中，GC Roots包括:
     * 虚拟机栈中引用的对象。
@@ -593,6 +610,9 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     * Condition的await()、signal()与Object的await()、signal(): Object中的wait(),notify(),notifyAll()方法是和"同步锁"(synchronized)捆绑
     使用的；而Condition是需要与"互斥锁"/"共享锁"捆绑使用的。
 
+  - 偏向锁:
+    你知道 Java 的偏向锁要被废弃掉了吗？https://zhuanlan.zhihu.com/p/365454004?utm_id=0
+
   - AQS & Sync:
     AQS(AbstractQueuedSynchronizer类)是一个用来构建锁和同步器的框架,它在内部定义了一个int state变量,用来表示同步状态.在LOCK包中的相关锁(
     常用的有ReentrantLock、 ReadWriteLock)都是基于AQS来构建.然而这些锁都没有直接来继承AQS,而是定义了一个Sync类去继承AQS.那么为什么要这样
@@ -679,9 +699,20 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
       private final Condition notFull;
       transient Itrs itrs = null;//Itr是实现了Iterator接口的类
 
-  - 以上三个除ConcurrentHashMap之外，add之前都是进行：
+  - 以上三个除ConcurrentHashMap之外，add之前都是进行:
         # final ReentrantLock lock = this.lock;
         # lock.lock();
+
+  - 强引用、弱引用
+    强引用（Strong Reference）: 通常我们通过new来创建一个新对象时返回的引用就是一个强引用，若一个对象通过一系列强引用可到达，它就是强可达的(strongly reachable)，那么它就不被回收
+    弱引用（Weak Reference）: 弱引用的对象拥有更短暂的生命周期。在垃圾回收器线程扫描它所管辖的内存区域的过程中，一旦发现了只具有弱引用的对象，不管当前内存空间足够与否，都会回收它的内存
+    软引用（Soft Reference）: 软引用和弱引用的区别在于，若一个对象是弱引用可达，无论当前内存是否充足它都会被回收，而软引用可达的对象在内存不充足时才会被回收，因此软引用要比弱引用“强”一些
+    虚引用（Phantom Reference）: 虚引用是Java中最弱的引用，那么它弱到什么程度呢？它是如此脆弱以至于我们通过虚引用甚至无法获取到被引用的对象，虚引用存在的唯一作用就是当它指向的对象被回收后，虚引用本身会被加入到引用队列中，用作记录它指向的对象已被回收。
+
+为什么使用弱引用
+Java常通过使用弱引用来避免内存泄漏，例如在JDK中有一种内存变量ThreadLocal，通过ThreadLocal变量可以使共享的变量在不同的线程中有不同的副本，原理是在每一个Thread有一个threadLocalMap的属性，用来存放ThreadLocal对象，ThreadLocalMap中是通过一个Entry[]的散列表存放ThreadLocal变量以及ThreadLocal的value，而作为Entry的key的ThreadLocal就是使用的弱引用，如果不使用弱引用，那么当持有value的强引用释放掉后，当线程没有回收释放时，threadLocalMap会一直持有ThreadLocal以及value的强应用，导致value不能够被回收，从而造成内存泄漏。
+
+通过使用弱引用，当ThreadLocal的强引用释放掉后，通过一次系统gc检查，发现ThreadLocal对象只有threadLocalMap中Entry的若引用持有，此时根据弱引用的机制就会回收ThreadLocal对象，从而避免了内存泄露。
 
 
 4.1.ThreadLocal: # 与Thread同级目录的类
