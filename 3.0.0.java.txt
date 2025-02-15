@@ -163,7 +163,33 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
     单利不会排队、低效，反而并发越高越高效：spring单例模式下用ThreadLocal来切换不同线程之间的参数、保证线程安全，实际上ThreadLoacal的key就是当前
     线程的Thread实例。单例模式下，spring把每个线程可能存在线程安全问题的参数值放进了ThreadLocal。这样虽然是一个实例在操作，但是不同线程下的数据互
     相之间都是隔离的，因为运行时创建和销毁的bean大大减少了，所以大多数场景下这种方式对内存资源的消耗较少，而且并发越高优势越明显。
+    饿汉式单例: 
+    #public class MySingleton {  
+    #    private static MySingleton instance = new MySingleton();  
+    #    private MySingleton(){}  
+    #    public static MySingleton getInstance() {  
+    #        return instance;  
+    #    }  
+    #}
 
+    懒汉式单例: 
+    #public class MySingleton {  
+    #    //使用volatile关键字保其可见性  
+    #    volatile private static MySingleton instance = null;  
+    #    private MySingleton(){}  
+    #    public static MySingleton getInstance() {  
+    #        if(instance != null){//懒汉式  
+    #            return instance;
+    #        }else{  
+    #            synchronized (MySingleton.class) {  
+    #                if(instance == null){//二次检查  
+    #                    instance = new MySingleton();  
+    #                }  
+    #            }  
+    #        }   
+    #        return instance;  
+    #    }  
+    #}
 
 2.1.jvm - 算法: 
   - 标记 - 清除算法

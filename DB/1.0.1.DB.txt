@@ -1,10 +1,6 @@
 0: DB分类
 
 
-
-
-
-
 ------------------------------------------------------------------------------------------------------------
 0: 事务隔离级别
 1: 轨迹存储三种方案对比
@@ -13,6 +9,9 @@
 4: char,nchar,varchar,nvarchar的区别是什么
 5: 深入了解MVCC（Mutli Version Concurreny Control,多版本并发控制）
 6: 扩容评估
+7: 数据库索引-效率（为什么选择B+而不是哈希表、二叉树或者BTree:）
+8: 数据库索引-优化(逐渐索引vs辅助索引)
+9: 数据库索引-为什么一个节点1页(16k)就可以了
 ------------------------------------------------------------------------------------------------------------
 
 
@@ -60,25 +59,25 @@
 
 
   InfluxDB：https://zhuanlan.zhihu.com/p/80062750
-  InfluxDB是一个由InfluxData开发的开源时序型数据库，专注于海量时序数据的高性能读、高性能写、高效存储与实时分析等，在DB-Engines Ranking时序型数据库排行榜上排名第一，广泛应用于DevOps监控、IoT监控、实时分析等场景。
+  InfluxDB是一个由InfluxData开发的开源时序型数据库，专注于海量时序数据的高性能读、高性能写、高效存储与实时分析等，在DB-Engines Ranking时序型数据库排行榜上
+  排名第一，广泛应用于DevOps监控、IoT监控、实时分析等场景。
   1.InfluxDB的写性能是OpenTSDB的5倍，存储效率是OpenTSDB的16.5倍，查询效率是OpenTSDB的3.65倍。
   2.InfluxDB的写性能是Cassandra的4.5倍，存储效率是Cassandra的2.1倍，查询效率是Cassandra的45倍。
   3.InfluxDB的写性能是MongoDB的2.4倍，存储效率是MongoDB的20倍，查询效率是MongoDB的5.7倍。
 
 
-  Greenplum介绍（MPP数据库-海量数据并行处理DB）：https://www.jianshu.com/p/b2c286f9b128，https://zhuanlan.zhihu.com/p/127104595
+  Greenplum介绍（MPP数据库-海量数据并行处理DB，如clickhouse）：https://www.jianshu.com/p/b2c286f9b128，https://zhuanlan.zhihu.com/p/127104595
   1.是业界最快最高性价比的关系型分布式数据库,它在开源的PostgreSQL的基础上采用MPP架构（Massive Parallel Processing，海量并行处理）,具有强大的大规模数据分析任务处理能力。
   2.常用的MPP数据库有哪些？GreenPlum/Vertica/Sybase IQ/TD Aster Data一般来说，我们都会更倾向于GreenPlum，而且阿里的云数据库HybirdDB也是基于GreenPlum的开源项目。
   3.Greenplum（集群由master、slave、interconnected三种节点组成）架构中的master和salve类似Hadoop中的master和slave，master存储元数据和client请求的分发
 
-  PostgreSQL：简称pgSQL，是一种特性非常齐全的自由软件的对象-关系型数据库管理系统（ORDBMS），是以加州大学计算机系开发的POSTGRES，4.2版本为基础的对象关系型数据库管理系统。POSTGRES的许多领先概念只是在比较迟的时候才出现在商业网站数据库中。
-  PostgreSQL 与MySQL相比，优势何在？https://www.zhihu.com/question/20010554，重要的一点：PG 多年来在 GIS 领域处于优势地位
+  PostgreSQL: 简称pgSQL，是一种特性非常齐全的自由软件的对象-关系型数据库管理系统（ORDBMS），是以加州大学计算机系开发的POSTGRES，4.2版本为基础的对象关系
+  型数据库管理系统。POSTGRES的许多领先概念只是在比较迟的时候才出现在商业网站数据库中。
+  PostgreSQL与MySQL相比，优势何在: https://www.zhihu.com/question/20010554，重要的一点：PG 多年来在 GIS 领域处于优势地位
 
 2: 聚簇索引／为什么索引快
-  聚簇索引是对磁盘上实际数据重新组织以按指定的一个或多个列的值排序的算法。特点是存储数据的顺序和索引顺序一致。一般情况下主键会默认创建聚簇索引，且
-  一张表只允许存在一个聚簇索引。
-  在《数据库原理》一书中是这么解释聚簇索引和非聚簇索引的区别的：聚簇索引的叶子节点就是数据节点(B+Tree)，而非聚簇索引的叶子节点仍然是索引节点，只
-  不过有指向对应数据块的指针。(BTree)
+  聚簇索引是对磁盘上实际数据重新组织以按指定的一个或多个列的值排序的算法。特点是存储数据的顺序和索引顺序一致。一般情况下主键会默认创建聚簇索引，且一张表只允许存在一个聚簇索引。
+  在《数据库原理》一书中是这么解释聚簇索引和非聚簇索引的区别的: 聚簇索引的叶子节点就是数据节点(B+Tree)，而非聚簇索引的叶子节点仍然是索引节点，只不过有指向对应数据块的指针(BTree).
 
 3: 代码中#{}和${}的区别是什么？
   ${}是Properties文件中的变量占位符，它可以用于标签属性值和sql内部，属于静态文本替换，比如${driver}会被静态替换为com.mysql.jdbc.Driver。
@@ -87,14 +86,16 @@
   一般我们使用#{}，不使用${}，原因：会引起sql注入，${}会直接参与sql编译，会影响sql语句的预编译。
 
 4: char,nchar,varchar,nvarchar的区别是什么？
-nchar and nvarchar can store Unicode characters.
-char and varchar cannot store Unicode characters.
-char and nchar are fixed-length which will reserve storage space for number of characters you specify even if you don't use up all that space.
-varchar and nvarchar are variable-length which will only use up spaces for the characters you store. It will not reserve storage like char or nchar.
-nchar and nvarchar will take up twice as much storage space, so it may be wise to use them only if you need Unicode support.
+  nchar and nvarchar can store Unicode characters.
+  char and varchar cannot store Unicode characters.
+  char and nchar are fixed-length which will reserve storage space for number of characters you specify even if you don't use up all that space.
+  varchar and nvarchar are variable-length which will only use up spaces for the characters you store. It will not reserve storage like char or nchar.
+  nchar and nvarchar will take up twice as much storage space, so it may be wise to use them only if you need Unicode support.
 
-5: 深入了解MVCC（Mutli Version Concurreny Control,多版本并发控制）
-数据库并发控制：https://www.jianshu.com/p/032739e930c0
+5: 深入了解MVCC（Mutli Version Concurreny Control,多版本并发控制）& 锁升级机制
+  数据库并发控制: https://www.jianshu.com/p/032739e930c0
+  Mysql不同维度下锁的分类: https://cloud.tencent.com/developer/article/2431018
+  Mysql行锁升级成表锁，原因是有索引会加在具体的行上，没有索引是加的是全表: https://blog.csdn.net/qq_39408664/article/details/118937047
 
 
 6: 扩容评估
@@ -102,11 +103,11 @@ nchar and nvarchar will take up twice as much storage space, so it may be wise t
                 数据库架构是针对分布式数据库，例如Hbase，ClickHouse等
 [TPS预估]业务稳定状态下, 全天峰值访问量(每秒事务语句数量)，注意：服务器资源数量是根据tps来计算的，认真计算tps和申请服务器资源的数量
 [QPS预估]业务稳定状态下, 全天峰值访问量(每秒查询语句数量)预计1年的空间使用量(G)：业务未来1年所需磁盘存储大小(包括所有主从备服务器占用的总空间)
-[扩容项目] :
-                近1自然年的空间使用量（G）:扩容项目说明最近1年的主从备总空间的使用量
-                当前空间使用百分比: 扩容项目当前空间使用的百分比。
-                预计1年的空间使用量（G）：扩容项目预计未来1年的主从备总空间的使用量
-                预计空间增量百分比（每年）: 预计每年空间增量率
+[扩容项目] : 
+            近1自然年的空间使用量（G）: 扩容项目说明最近1年的主从备总空间的使用量
+            当前空间使用百分比: 扩容项目当前空间使用的百分比。
+            预计1年的空间使用量（G）: 扩容项目预计未来1年的主从备总空间的使用量
+            预计空间增量百分比（每年）: 预计每年空间增量率
 [物理机]默认物理机配置是标C服务器，128G内存，40核CPU，6T磁盘空间，SSD磁盘。预估可承载业务量为：mysql5.6 3000tps/10000qps, mysql5.7 8000tps/12000qps
 [虚拟机]默认虚拟机配置是标C五分之一，20G内存，8核CPU，1T磁盘空间，SSD磁盘。（存储空间与IO资源不做绝对限制，与服务器上其它实例共享）预估可承载业
                 务量为：800tps, 3000qps
@@ -117,3 +118,31 @@ nchar and nvarchar will take up twice as much storage space, so it may be wise t
                  2) 注意申请数量需包含所有节点，如1主1从1备为3台服务器资源
 物理机数量计算公式=(评估的tps/8000)*数据库架构
 虚拟机数量计算公式=(评估的tps/800)*数据库架构
+
+7: 数据库索引-效率（为什么选择B+而不是哈希表、二叉树或者BTree:）
+  Mysql选用B+树这种数据结构作为索引，可以提高查询索引时的磁盘IO效率( 一个节点默认一页，Mysql的Innodb引擎中一页的默认大小是16k（如果操作系统中一页大小是4k，那么
+  Mysql中1页=操作系统中4页）)，并且可以提高范围查询的效率(原因在于B+树中的非叶子节点会冗余一份在叶子节点中，并且叶子节点之间用指针相连。另，哈希表不支持范围查找)，
+  并且B+树里的元素也是有序的。
+  PS: 为什么有人平时说B+非叶子节点不存数据：
+  通常我们认为B+树的非叶子节点不存储数据，只有叶子节点才存储数据；而B树的非叶子和叶子节点都会存储数据，会导致非叶子节点存储的索引值会更少，树的高度相对会比B+树高，
+  平均的I/O效率会比较低，所以使用B+树作为索引的数据结构，再加上B+树的叶子节点之间会有指针相连，也方便进行范围查找。
+
+8: 数据库索引-优化(逐渐索引vs辅助索引)(参考 2:聚簇索引／为什么索引快)
+  InnoDB中主键索引的叶子节点的数据区域存储的是数据记录，辅助索引存储的是主键值。
+  Innodb中的主键索引和实际数据时绑定在一起的，也就是说Innodb的一个表一定要有主键索引，如果一个表没有手动建立主键索引，Innodb会查看有没有唯一索引，如果有则选用唯一
+  索引作为主键索引，如果连唯一索引也没有，则会默认建立一个隐藏的主键索引（用户不可见）。另外，Innodb的主键索引要比MyISAM的主键索引查询效率要高（少一次磁盘IO），并且
+  比辅助索引也要高很多。所以，我们在使用Innodb作为存储引擎时，我们最好：
+  a.手动建立主键索引
+  b.尽量利用主键索引查询
+
+9: 为什么一个节点1页(16k)就可以了
+  那么，假设我们一行数据大小为1K，那么一页就能存16条数据，也就是一个叶子节点能存16条数据；再看非叶子节点，假设主键ID为bigint类型，那么长度为8B，指针大小在Innodb源
+  码中为6B，一共就是14B，那么一页里就可以存储16K/14=1170个(主键+指针)，那么一颗高度为2的B+树能存储的数据为：1170*16=18720条，一颗高度为3的B+树能存储的数据为：
+  1170*1170*16=21902400（千万级条）。所以在InnoDB中B+树高度一般为1-3层，它就能满足千万级的数据存储。在查找数据时一次页的查找代表一次IO，所以通过主键索引查询通常只
+  需要1-3次IO操作即可查找到数据。所以也就回答了我们的问题，1页=16k这么设置是比较合适的，是适用大多数的企业的，当然这个值是可以修改的，所以也能根据业务的时间情况进行调整
+  
+  数据会根据索引中的顺序进行排列和组织的，这样的索引就被称为聚集索引，而非聚集索引就是其他的一般索引。因为数据只能按照一种规则排序，所以一张表至多有一个聚集索引，但可以有多
+  个非聚集索引。在MySQL数据库的 InnoDB存储引擎中，主键索引就是聚集索引，所有数据都会按照主键索引进行组织；而在 MyISAM存储引擎中，就没有聚集索引了，因为MyISAM存储引擎中
+  的数据不是按索引顺序进行存储的。
+
+

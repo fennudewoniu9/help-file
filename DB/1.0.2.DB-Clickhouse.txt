@@ -1,0 +1,20 @@
+https://blog.csdn.net/jdcdev_/article/details/127847556
+https://www.jianshu.com/p/fc80d5b2d919
+  clickhouse采用MPP架构,利用LSM算法实现内存预排序磁盘顺序写入,具备大批量、低延迟的写入优势, 并具有出色的数据压缩能力,最大能够达到20:1的压缩比。
+Massively Parallel Processing: 即大规模并行处理。一般用来指多个SQL数据库节点搭建的数据仓库系统。执行查询的时候，查询可以分散到多个SQL数据库节点上执行，然后汇总
+  返回给用户，但现在MPP架构和Sql on Hadoop（速度慢）的区别也变得模糊。MPP解决了单个SQL数据库不能存放海量数据的问题，但是也存在一些问题，例如：当节点数达到100左右
+  时，MPP有些仍会遇到SQScalability的问题，速度变慢，或者不稳定。当增加或者删除节点的时候，需要的维护工作仍然比较大，集群会遇到数据迁移和重新平衡的问题。
+LSM tree (log-structured merge-tree) : 是一种对频繁写操作非常友好的数据结构，同时兼顾了查询效率。LSM tree 是许多 key-value 型或日志型数据库所依赖的核心数据
+  结构，例如 BigTable、HBase、Cassandra、LevelDB、SQLite、Scylla、RocksDB 等。LSM tree 之所以有效是基于以下事实：磁盘或内存的连续读写性能远高于随机读写性能，
+  有时候这种差距可以达到三个数量级之高。这种现象不仅对传统的机械硬盘成立，对 SSD 硬盘也同样成立。LSM tree 存储引擎的工作原理包含以下几个要点：写数据时，首先将数据
+  缓存到内存中的一个有序树结构中（称为 memtable）。同时触发相关结构的更新，例如布隆过滤器、稀疏索引。当 memtable 积累到足够大时，会一次性写入磁盘中，生成一个内部
+  有序的 segment 文件。该过程为连续写，因此效率极高。
+
+
+
+
+
+
+
+
+
