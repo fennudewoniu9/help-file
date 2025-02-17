@@ -70,6 +70,12 @@ ASM: 字节码操作框架--https://www.ibm.com/developerworks/cn/java/j-lo-asm3
 # http://blog.csdn.net/hsk256/article/details/49104955
 # http://blog.csdn.net/ochangwen/article/details/51407167
 2.jvm: 参考PPT
+   # Non-heap memory is all the memory the JVM allocated for purposes other than the heap. This includes:
+   # the call stacks (as you noted);
+   # memory allocated by native code (e.g. for off-heap caching);
+   # in HotSpot 8, the Metaspace (replacement for the Permanent Generation);
+   # memory used by the JIT compiler (compiled native code).
+   # In your list, "CMS Old Gen", "Par Eden Space", "Par Survivor Space", and "CMS Perm Gen", all refer to various sections of the heap.
    # jvm 中，程序计数器、虚拟机栈、本地方法栈都是随线程而生随线程而灭，栈帧随着方法的进入和退出做入栈和出栈操作，实现了自动的内存清理，因此，我们的内存垃圾回收
    # 主要集中于 java 堆和方法区中，在程序运行期间，这部分内存的分配和使用都是动态的.
   - 方法区: # 还有一个别名Non-Heap(非堆) ===> java.lang.OutOfMemoryError: PermGen space，
